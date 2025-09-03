@@ -1,0 +1,10 @@
+Bienvenido a
+
+$LETTERA$
+
+Versión $VERSION$
+Copyright (C) 2025 francitoshi@gmail.com
+Licencia GPLv3+: GNU GPL versión 3 o posterior <https://www.gnu.org/licenses/gpl.html>
+
+Este software es libre; puede modificarlo y redistribuirlo libremente.
+NO HAY GARANTÍA, en la medida en que lo permita la ley.

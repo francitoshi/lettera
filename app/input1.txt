@@ -1,0 +1,11 @@
+/list-accounts
+/list-friends
+/list-chats
+/help
+/about
+/exit
+
+
+
+
+
