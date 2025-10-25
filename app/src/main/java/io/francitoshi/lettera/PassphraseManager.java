@@ -39,10 +39,10 @@ public class PassphraseManager
         return console.readPassword("passphrase:");
     }
     
-    public static char[] createPassphrase(boolean debug)
+    public static char[] createPassphrase(boolean mockConsole)
     {
         StrongPassword strongPassword = new StrongPassword(MIN_PASS_SIZE);
-        VirtualConsole console = AbstractConsole.getInstance(debug);
+        VirtualConsole console = AbstractConsole.getInstance(mockConsole);
         System.out.println("Hello, i'm lettera!!!\n");
         System.out.println("You need a safe passphrase to keep your data safe. Let's create a good one.");
         System.out.println("16+ characters, just 4 or 5 random words would be enough.");

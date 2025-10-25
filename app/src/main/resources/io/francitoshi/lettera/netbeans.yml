@@ -1,0 +1,252 @@
+# Ejemplo de formato YAML para definir un menú nativo en JavaFX
+# Este formato es hipotético y diseñado para ser parsed y convertido en objetos JavaFX como MenuBar, Menu, MenuItem, etc.
+# Estructura principal:
+# - menuBar: Objeto raíz que representa el MenuBar de JavaFX.
+#   - menus: Lista de menús principales (Menu objects).
+# Cada menú (Menu):
+#   - type: Siempre "menu" para menús principales o submenús.
+#   - text: Texto visible del menú (soporta mnemonics con _ para atajos de teclado, e.g., "_File").
+#   - id: ID opcional para referencia en código.
+#   - graphic: URL o path a un icono (Image) opcional.
+#   - items: Lista de ítems hijos (pueden ser MenuItem, submenús, separadores, etc.).
+# Ítems posibles:
+#   - type: "menuitem" (MenuItem estándar).
+#   - type: "checkmenuitem" (CheckMenuItem, con estado checked).
+#   - type: "radiomenuitem" (RadioMenuItem, parte de un grupo).
+#   - type: "separator" (SeparatorMenuItem, sin propiedades adicionales).
+#   - type: "custom" (CustomMenuItem, para nodos personalizados como sliders o labels).
+# Propiedades comunes para ítems:
+#   - text: Texto visible.
+#   - accelerator: Atajo de teclado (e.g., "CTRL+S" o "ALT+SHIFT+F").
+#   - action: Nombre del handler o método a llamar (string para binding en código).
+#   - disabled: Boolean para deshabilitar (default: false).
+#   - visible: Boolean para visibilidad (default: true).
+#   - mnemonic: Char para mnemonic parsing (opcional, pero text con _ lo soporta).
+#   - graphic: URL o path a icono.
+#   - checked: Para check/radio, boolean inicial.
+#   - group: Para radio, string ID del grupo (ítems con mismo group son mutuamente exclusivos).
+#   - content: Para custom, descripción del nodo JavaFX (e.g., {type: "label", text: "Custom Label"}).
+# Este ejemplo replica aproximadamente el menú de NetBeans IDE, con todos los casos posibles incluidos.
+
+menuBar:
+  id: mainMenuBar
+  menus:
+    - type: menu
+      text: "_File"
+      id: fileMenu
+      items:
+        - type: menuitem
+          text: "_New Project..."
+          accelerator: "CTRL+SHIFT+N"
+          action: newProjectAction
+          graphic: /icons/new_project.png
+        - type: menuitem
+          text: "_Open Project..."
+          accelerator: "CTRL+SHIFT+O"
+          action: openProjectAction
+        - type: menu
+          text: "Recent _Projects"
+          items:
+            - type: menuitem
+              text: "Project1"
+              action: openRecentProject1
+            - type: menuitem
+              text: "Project2"
+              action: openRecentProject2
+              disabled: true  # Ejemplo de ítem deshabilitado
+        - type: separator
+        - type: menuitem
+          text: "_Save"
+          accelerator: "CTRL+S"
+          action: saveAction
+        - type: menuitem
+          text: "Save _All"
+          accelerator: "CTRL+SHIFT+S"
+          action: saveAllAction
+        - type: separator
+        - type: menuitem
+          text: "E_xit"
+          accelerator: "ALT+F4"
+          action: exitAction
+          visible: false  # Ejemplo de ítem oculto inicialmente
+
+    - type: menu
+      text: "_Edit"
+      items:
+        - type: menuitem
+          text: "_Undo"
+          accelerator: "CTRL+Z"
+          action: undoAction
+        - type: menuitem
+          text: "_Redo"
+          accelerator: "CTRL+Y"
+          action: redoAction
+        - type: separator
+        - type: menuitem
+          text: "Cu_t"
+          accelerator: "CTRL+X"
+          action: cutAction
+        - type: menuitem
+          text: "_Copy"
+          accelerator: "CTRL+C"
+          action: copyAction
+        - type: menuitem
+          text: "_Paste"
+          accelerator: "CTRL+V"
+          action: pasteAction
+        - type: separator
+        - type: checkmenuitem
+          text: "Word _Wrap"
+          action: toggleWordWrap
+          checked: true  # Ejemplo de checkmenuitem marcado inicialmente
+        - type: menu
+          text: "_Find"
+          items:
+            - type: menuitem
+              text: "Find in _File..."
+              accelerator: "CTRL+F"
+              action: findInFile
+            - type: menuitem
+              text: "Find in Pro_jects..."
+              accelerator: "CTRL+SHIFT+F"
+              action: findInProjects
+
+    - type: menu
+      text: "_View"
+      items:
+        - type: radiomenuitem
+          text: "Light _Theme"
+          action: setLightTheme
+          group: themeGroup  # Ejemplo de radio group
+          checked: true
+        - type: radiomenuitem
+          text: "Dark T_heme"
+          action: setDarkTheme
+          group: themeGroup
+        - type: separator
+        - type: checkmenuitem
+          text: "Show _Toolbar"
+          action: toggleToolbar
+          checked: true
+        - type: custom  # Ejemplo de CustomMenuItem
+          content:
+            type: slider
+            min: 0
+            max: 100
+            value: 50
+            orientation: horizontal
+            action: adjustZoom  # Handler para el valor del slider
+
+    - type: menu
+      text: "_Navigate"
+      items:
+        - type: menuitem
+          text: "Go to _File..."
+          accelerator: "CTRL+SHIFT+T"
+          action: goToFile
+        - type: menuitem
+          text: "Go to _Type..."
+          accelerator: "CTRL+O"
+          action: goToType
+
+    - type: menu
+      text: "_Source"
+      items:
+        - type: menuitem
+          text: "Format _Code"
+          accelerator: "ALT+SHIFT+F"
+          action: formatCode
+        - type: menuitem
+          text: "Fix _Imports"
+          accelerator: "CTRL+SHIFT+I"
+          action: fixImports
+
+    - type: menu
+      text: "Re_factor"
+      items:
+        - type: menuitem
+          text: "_Rename..."
+          accelerator: "CTRL+R"
+          action: renameAction
+        - type: menuitem
+          text: "_Move..."
+          action: moveAction
+
+    - type: menu
+      text: "_Run"
+      items:
+        - type: menuitem
+          text: "_Build Project"
+          accelerator: "F11"
+          action: buildProject
+        - type: menuitem
+          text: "Run _Project"
+          accelerator: "F6"
+          action: runProject
+
+    - type: menu
+      text: "_Debug"
+      items:
+        - type: menuitem
+          text: "Debug _Project"
+          accelerator: "CTRL+F5"
+          action: debugProject
+        - type: menuitem
+          text: "_Step Into"
+          accelerator: "F7"
+          action: stepInto
+
+    - type: menu
+      text: "_Team"
+      items:
+        - type: menuitem
+          text: "_Commit..."
+          action: commitAction
+        - type: menuitem
+          text: "_Push..."
+          action: pushAction
+
+    - type: menu
+      text: "_Tools"
+      items:
+        - type: menuitem
+          text: "_Options..."
+          action: openOptions
+        - type: menu
+          text: "Pl_ugins"
+          items:
+            - type: menuitem
+              text: "Installed _Plugins"
+              action: showInstalledPlugins
+            - type: menuitem
+              text: "Available Pl_ugins"
+              action: showAvailablePlugins
+
+    - type: menu
+      text: "_Window"
+      items:
+        - type: menuitem
+          text: "Close _Window"
+          accelerator: "CTRL+W"
+          action: closeWindow
+        - type: menuitem
+          text: "Close _All Documents"
+          accelerator: "CTRL+SHIFT+W"
+          action: closeAll
+
+    - type: menu
+      text: "_Help"
+      items:
+        - type: menuitem
+          text: "_Help Contents"
+          accelerator: "F1"
+          action: showHelp
+        - type: menuitem
+          text: "_About"
+          action: showAbout
+        - type: separator
+        - type: radiomenuitem
+          text: "Check for _Updates"
+          action: checkUpdates
+          group: updateGroup
+          checked: false

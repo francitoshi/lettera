@@ -21,6 +21,7 @@
 package io.francitoshi.lettera;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.Objects;
 
 class Chat implements Serializable
@@ -34,8 +35,9 @@ class Chat implements Serializable
     public final String friendName;
     public final String friendAddress;
     public final String friendKeyid;
+    public final char[] sharedSecret;
 
-    public Chat(String accountName, String accountAddress, String accountKeyid, String friendName, String friendAddress, String friendKeyid)
+    public Chat(String accountName, String accountAddress, String accountKeyid, String friendName, String friendAddress, String friendKeyid, char[] sharedSecret)
     {
         this.id = accountName+"-"+friendName;
         this.accountName = accountName;
@@ -44,24 +46,26 @@ class Chat implements Serializable
         this.friendName = friendName;
         this.friendAddress = friendAddress;
         this.friendKeyid = friendKeyid;
+        this.sharedSecret = sharedSecret;
     }
 
-    public static Chat build(Account account, Friend friend)
+    public static Chat build(Account account, Friend friend, char[] sharedSecret)
     {
-        return new Chat(account.name, account.address, account.keyid, friend.name, friend.address, friend.keyid);
+        return new Chat(account.name, account.address, account.keyid, friend.name, friend.address, friend.keyid, sharedSecret);
     }
 
     @Override
     public int hashCode()
     {
         int hash = 7;
-        hash = 17 * hash + Objects.hashCode(this.id);
-        hash = 17 * hash + Objects.hashCode(this.accountName);
-        hash = 17 * hash + Objects.hashCode(this.accountAddress);
-        hash = 17 * hash + Objects.hashCode(this.accountKeyid);
-        hash = 17 * hash + Objects.hashCode(this.friendName);
-        hash = 17 * hash + Objects.hashCode(this.friendAddress);
-        hash = 17 * hash + Objects.hashCode(this.friendKeyid);
+        hash = 37 * hash + Objects.hashCode(this.id);
+        hash = 37 * hash + Objects.hashCode(this.accountName);
+        hash = 37 * hash + Objects.hashCode(this.accountAddress);
+        hash = 37 * hash + Objects.hashCode(this.accountKeyid);
+        hash = 37 * hash + Objects.hashCode(this.friendName);
+        hash = 37 * hash + Objects.hashCode(this.friendAddress);
+        hash = 37 * hash + Objects.hashCode(this.friendKeyid);
+        hash = 37 * hash + Arrays.hashCode(this.sharedSecret);
         return hash;
     }
 
@@ -105,8 +109,13 @@ class Chat implements Serializable
         {
             return false;
         }
-        return Objects.equals(this.friendKeyid, other.friendKeyid);
+        if (!Objects.equals(this.friendKeyid, other.friendKeyid))
+        {
+            return false;
+        }
+        return Arrays.equals(this.sharedSecret, other.sharedSecret);
     }
+
 
     public String diff(Chat other)
     {
@@ -134,6 +143,10 @@ class Chat implements Serializable
         if (!Objects.equals(this.friendKeyid, other.friendKeyid))
         {
             sb.append("friendKeyid: ").append(this.friendKeyid).append(" >> ").append(other.friendKeyid).append('\n');
+        }
+        if (!Arrays.equals(this.sharedSecret, other.sharedSecret))
+        {
+            sb.append("sharedSecret: ").append(this.sharedSecret).append(" >> ").append(other.sharedSecret).append('\n');
         }
         return sb.toString();
     }

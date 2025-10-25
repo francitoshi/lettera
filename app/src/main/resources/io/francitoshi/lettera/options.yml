@@ -1,0 +1,49 @@
+# examples/options.yml
+
+# Optional menu configuration
+options:
+  # Show header text
+  header: Hello
+
+  # Marker to show as the suffix of items that have submenus
+  # Use false to disable
+  submenu_marker: " ..."
+
+  # Menu selection marker
+  select_marker: ">"
+
+  # Menu title marker
+  title_marker: "-"
+
+  # When a menu has more items than page_size, add pagiation
+  # Default 10
+  page_size: 2
+
+  # When to show search filter
+  # yes      = always show
+  # no       = never show
+  # auto     = show only when there are more items than page_size (default)
+  # <number> = show only when there are more items than <number>
+  filter: yes
+
+  # When arg lists generate one item only it is auto-selected by default.
+  # Set this to false to disable this behavior
+  auto_select: false
+
+  # Show the command after execution
+  echo: true
+
+  # Marker to use when echoing the command and it was successful
+  echo_marker_success: "==>"
+
+  # Marker to use when echoing the command and it failed
+  echo_marker_error: "ERROR ==>"
+
+menu:
+  say:
+    hello: echo hello
+    error: simulate-error
+    hey: echo hey
+    hi: echo hi
+
+  whoami: whoami

@@ -1,0 +1,32 @@
+name: lettera
+base: core22
+version: '0.0.1'
+summary: Simple Java command-line application
+description: |
+  Lettera is a Java 17 command-line application that requires internet access 
+  and uses configuration files from the user's home directory.
+
+grade: stable
+confinement: strict
+
+apps:
+  lettera:
+    command: bin/lettera
+    environment:
+      JAVA_HOME: $SNAP/usr/lib/jvm/java-17-openjdk-amd64
+      PATH: $JAVA_HOME/bin:$PATH
+    plugs:
+      - network
+      - home
+
+parts:
+  lettera:
+    plugin: dump
+    # dynamically use the same version declared above
+    source: app/build/distributions/lettera-${SNAPCRAFT_PROJECT_VERSION}.zip
+    organize:
+      lettera-${SNAPCRAFT_PROJECT_VERSION}/bin/lettera: bin/lettera
+      lettera-${SNAPCRAFT_PROJECT_VERSION}/bin/: bin/
+      lettera-${SNAPCRAFT_PROJECT_VERSION}/lib/: lib/
+    stage-packages:
+      - openjdk-17-jre

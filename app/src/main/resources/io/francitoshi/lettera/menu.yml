@@ -1,0 +1,18 @@
+File:
+  - text: Inicio
+    name: init
+  - text: Acerca de
+    name: about
+  - text: Productos
+    id: products
+  - text: Contacto
+    id: contact
+Edit:
+  - text: Inicio
+    id: init
+  - text: Acerca de
+    id: about
+  - text: Productos
+    id: products
+  - text: Contacto
+    id: contact

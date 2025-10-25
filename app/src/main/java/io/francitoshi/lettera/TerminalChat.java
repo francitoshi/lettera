@@ -38,7 +38,6 @@ import io.nut.base.encoding.Ascii85;
 import io.nut.base.encoding.Base64DecoderException;
 import io.nut.base.io.IO;
 import io.nut.base.io.console.AbstractConsole;
-import io.nut.base.io.console.VirtualConsole;
 import io.nut.base.security.SecureChars;
 import io.nut.base.text.Table;
 import io.nut.base.time.JavaTime;
@@ -50,12 +49,18 @@ import io.nut.base.util.Utils;
 import io.nut.core.net.mail.IMAP;
 import io.nut.core.net.mail.MailReader;
 import io.nut.core.net.mail.SMTP;
+import jakarta.mail.BodyPart;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
 import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.InternetAddress;
+import java.awt.Toolkit;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyStoreException;
@@ -81,6 +86,7 @@ import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.impl.completer.StringsCompleter;
 import org.jline.terminal.Terminal;
+import org.jline.utils.AttributedString;
 
 /**
  *
@@ -127,6 +133,7 @@ public class TerminalChat
     private static final Kripto KRIPTO = Kripto.getInstance(false);
     private static final Rand RAND = Kripto.getRand();
     private static final GPG GPG = new GPG().setArmor(true);
+    private static final Charset UTF8 = StandardCharsets.UTF_8;
     
     private final Terminal terminal;
     private final File configFile;
@@ -137,6 +144,7 @@ public class TerminalChat
     private volatile SecureWrapper wrapper;
     private volatile Passphraser passphraser;
     private volatile KeyStoreManager ksm;
+    private final boolean mock;
     private final boolean debug;
     
     private volatile LineReader reader;
@@ -148,19 +156,22 @@ public class TerminalChat
     private volatile MailReader mailReader;
     private volatile SMTP smtp;
     private volatile boolean wizard;
+    private final PrintStream out;
     
     private volatile SecKey[] secs;
     private volatile PubKey[] pubs;
         
-    public TerminalChat(Terminal terminal, File configFile, File keystoreFile, File letteraDb, SecureChars passphrase, boolean debug)
+    public TerminalChat(Terminal terminal, File configFile, File keystoreFile, File letteraDb, SecureChars passphrase, boolean mock, boolean debug)
     {
         this.terminal = terminal;
         this.configFile = configFile;
         this.keystoreFile = keystoreFile;
         this.letteraDb = letteraDb;
         this.passphrase = passphrase;
+        this.mock = mock;
         this.debug = debug;
         this.console = System.console()!=null;
+        this.out =  IO.asPrintStream(terminal.output());
     }
     
     public void setWizard(boolean value)
@@ -178,12 +189,15 @@ public class TerminalChat
     private static final String _CHAT = "/chat";
     private static final String _UNREAD = "/unread";
     private static final String _WIZARD = "/wizard";
+    private static final String _WAIT_MESSAGE = "/wait-message";
     private static final String _PASSPHRASE = "/passphrase";
     private static final String _EXIT = "/exit";
 
     private static final int KEY_BYTES = 32;
     private static final int SALT_BYTES = 32;
     private static final Argon2Advanced ARGON2 = Argon2Factory.createAdvanced(Argon2Factory.Argon2Types.ARGON2id, SALT_BYTES, KEY_BYTES);
+    
+    private final Object waitMessageLock = new Object();
     
     void run() throws IOException, InterruptedException, Base64DecoderException, NoSuchAlgorithmException, CertificateException, KeyStoreException, Exception
     {
@@ -197,7 +211,7 @@ public class TerminalChat
         
         if(passphrase==null)
         {
-            passphrase = new SecureChars(firstTime ? PassphraseManager.createPassphrase(debug) : PassphraseManager.getPassphrase(debug));
+            passphrase = new SecureChars(firstTime ? PassphraseManager.createPassphrase(mock) : PassphraseManager.getPassphrase(mock));
         }
         long t0 = System.nanoTime();
         char[] pass = passphrase.getChars();
@@ -207,7 +221,7 @@ public class TerminalChat
         long t1 = System.nanoTime();
         if(debug)
         {
-            System.out.printf("argon2 = %d ms\n", TimeUnit.NANOSECONDS.toMillis(t1-t0));
+            this.out.printf("argon2 = %d ms\n", TimeUnit.NANOSECONDS.toMillis(t1-t0));
         }
         
         passphraser = KRIPTO.getPassphraserHkdf(KRIPTO.hkdfWithSha512, seed, config.getSalt());
@@ -246,14 +260,14 @@ public class TerminalChat
 
             if(wizard && listAccounts()==0)
             {
-                System.out.println("You need to create an account.");
-                System.out.println("lettera>"+_SETUP_ACCOUNT);
+                this.out.println("You need to create an account.");
+                this.out.println("lettera>"+_SETUP_ACCOUNT);
                 setupAccount();
             }
             if(wizard && listFriends()==0)
             {
-                System.out.println("You need to create a friend.");
-                System.out.println("lettera>"+_SETUP_FRIEND);
+                this.out.println("You need to create a friend.");
+                this.out.println("lettera>"+_SETUP_FRIEND);
                 setupFriend();
             }
             listChats();
@@ -262,8 +276,7 @@ public class TerminalChat
 
             showHelpTip();
             String prompt = "lettera";
-            String line = reader.readLine();
-            
+            String line;
             while ((line = reader.readLine(prompt+"> ")) != null)
             {
                 line = line.trim();
@@ -275,7 +288,7 @@ public class TerminalChat
                     }
                     else if (line.startsWith(_ABOUT))
                     {
-                        System.out.println(TerminalChat.WELCOME);
+                        this.out.println(TerminalChat.WELCOME);
                     }
                     else if (line.startsWith(_SETUP_ACCOUNT))
                     {
@@ -320,6 +333,15 @@ public class TerminalChat
                         reader.printAbove("");
                         break;
                     }
+                    else if (line.startsWith(_WAIT_MESSAGE))
+                    {
+                        synchronized (waitMessageLock)
+                        {
+                            reader.printAbove("LOCK BY WAIT-MESSAGE LOCK");
+                            waitMessageLock.wait(3600_000);
+                        }
+                        break;
+                    }
                     else if (line.startsWith(_EXIT))
                     {
                         reader.printAbove("");
@@ -356,11 +378,19 @@ public class TerminalChat
 
     private LineReader buildLineReader(Completer completer)
     {
-        LineReaderBuilder builder = LineReaderBuilder.builder().terminal(terminal);
-        return (completer!=null ? builder.completer(completer) : builder)
-               .option(LineReader.Option.CASE_INSENSITIVE, true)
-               .option(LineReader.Option.AUTO_FRESH_LINE, true)
-               .build();
+        if(console)
+        {
+            LineReaderBuilder builder = LineReaderBuilder.builder().terminal(terminal);
+            LineReader lineReader = (completer!=null ? builder.completer(completer) : builder)
+                   .option(LineReader.Option.CASE_INSENSITIVE, true)
+                   .option(LineReader.Option.AUTO_FRESH_LINE, true)
+                   .build();
+            return lineReader;
+        }
+        else
+        {
+            return new MockLineReader(this.terminal.input(), this.terminal.output());
+        }
     }
 
     private void showHelp()
@@ -413,6 +443,7 @@ public class TerminalChat
         list.add(_UNREAD);
 
         list.add(_WIZARD);
+        list.add(_WAIT_MESSAGE);
         
         list.add(_EXIT);
         
@@ -604,8 +635,8 @@ public class TerminalChat
             return null;
         }
         
-        auth = readBoolean("auth: ", auth);
-        starttls = readBoolean("starttls: ", starttls);
+        auth = readBoolean("auth[Y/n]: ", "","y", "n", auth);
+        starttls = readBoolean("starttls[Y/n]: ", "","y", "n", starttls);
         
         username = readString("username: ",username);
         if(username.isEmpty())
@@ -623,7 +654,7 @@ public class TerminalChat
             emailPass=wrapKey("email", name, password);
         }
         lineReader.zeroOut();
-        
+
         String text = keyid;
         try
         {
@@ -652,7 +683,7 @@ public class TerminalChat
         }
         else
         {
-            gpgPass=wrapKey("gpg", name, password);
+            gpgPass=wrapKey(GPG_PURPOSE, name, password);
         }
         lineReader.zeroOut();
         
@@ -663,6 +694,8 @@ public class TerminalChat
        
         return account;        
     }
+    
+    private static final String GPG_PURPOSE = "gpg";
     
     private Friend setupFriend()
     {
@@ -756,16 +789,24 @@ public class TerminalChat
         }
         lineReader.printAbove(friend.name+" / "+friend.address+" / "+friend.keyid);
         
+        
+        lineReader.printAbove("You need a shared secret with your friend to verify that there's no man-in-the-middle attack. You can skip this, but you'll have to verify the keys are correct yourself.");
+
+        char[] sharedSecret = readPasswordOrPass("shared secret: ");
+        if(sharedSecret.length==0 && sharedSecret!=null)
+        {
+            sharedSecret=null;
+        }
         lineReader.zeroOut();
         
-        Chat chat = new Chat(account.name, account.address, account.keyid, friend.name, friend.address, friend.keyid);
+        Chat chat = new Chat(account.name, account.address, account.keyid, friend.name, friend.address, friend.keyid, sharedSecret);
         
         this.db.putChat(chat);
         this.db.commit();
         return chat.id;
     }
 
-    private static String readLineEmail(LineReader lineReader, String prompt, String buffer)
+    private String readLineEmail(LineReader lineReader, String prompt, String buffer)
     {
         for(;;)
         {
@@ -787,21 +828,36 @@ public class TerminalChat
         }
     }
     
-    private String readString(String prompt, String buffer)
+    private String readLine(String prompt, Character ch, String buffer)
     {
         LineReader lineReader = buildLineReader(null);
         for(;;)
         {
-            String host = lineReader.readLine(prompt, null, buffer);
-            if(host.isEmpty())
+            String line = lineReader.readLine(prompt, ch, buffer);
+            if(line.isEmpty())
             {
-                return host;
+                return line;
             }
-            host = host.trim();
-            if(!host.isEmpty())
+            line = line.trim();
+            if(!line.isEmpty())
             {
-                return host;
+                return line;
             }
+        }
+    }
+    private String readString(String prompt, String buffer)
+    {
+        return readLine(prompt, null, buffer);
+    }    
+    private char[] readPassword(String prompt)
+    {
+        if(console)
+        {
+            return AbstractConsole.getInstance(mock).readPassword("%s", prompt);
+        }
+        else
+        {
+            return readLine(prompt, '*', "").toCharArray();
         }
     }
     
@@ -824,22 +880,22 @@ public class TerminalChat
         }
     }
 
-    private boolean readBoolean(String prompt, boolean buffer)
+    private boolean readBoolean(String prompt, String buffer, String yes, String no, boolean defaultValue)
     {
         LineReader lineReader = buildLineReader(null);
         for(;;)
         {
-            String yn = lineReader.readLine(prompt, null, buffer? "Y":"N");
+            String yn = lineReader.readLine(prompt, null, buffer);
             if(yn.isEmpty())
             {
-                return false;
+                return defaultValue;
             }
             yn = yn.trim();
-            if(yn.equalsIgnoreCase("Y"))
+            if(yn.equalsIgnoreCase(yes))
             {
                 return true;
             }
-            if(yn.equalsIgnoreCase("N"))
+            if(yn.equalsIgnoreCase(no))
             {
                 return false;
             }
@@ -883,9 +939,9 @@ public class TerminalChat
             table.setCell(r,1, items[r].address);
             table.setCell(r,2, items[r].keyid);
         }
-        System.out.println(HR);
-        System.out.println("Accounts: "+items.length);
-        System.out.println(table.toString());
+        this.out.println(HR);
+        this.out.println("Accounts: "+items.length);
+        this.out.println(table.toString());
         return items.length;
     }
 
@@ -899,9 +955,9 @@ public class TerminalChat
             table.setCell(r,1, items[r].address);
             table.setCell(r,2, items[r].keyid);
         }
-        System.out.println(HR);
-        System.out.println("Friends: "+items.length);
-        System.out.println(table.toString());
+        this.out.println(HR);
+        this.out.println("Friends: "+items.length);
+        this.out.println(table.toString());
         return items.length;
     }
 
@@ -915,9 +971,9 @@ public class TerminalChat
             table.setCell(r,1, items[r].accountAddress);
             table.setCell(r,2, items[r].friendAddress);
         }
-        System.out.println(HR);
-        System.out.println("Chats: "+items.length);
-        System.out.println(table.toString());
+        this.out.println(HR);
+        this.out.println("Chats: "+items.length);
+        this.out.println(table.toString());
         return items.length;
     }
 
@@ -933,7 +989,7 @@ public class TerminalChat
         currentAccount = db.getAccount(chat.accountName);
         currentFriend = db.getFriend(chat.friendName);
         
-        Chat chat2 = Chat.build(currentAccount, currentFriend);
+        Chat chat2 = Chat.build(currentAccount, currentFriend, chat.sharedSecret);
 
         if(!chat.equals(chat2))
         {
@@ -945,10 +1001,10 @@ public class TerminalChat
         currentNotes = db.getNotes(session);
         
         SecureChars secureEmailPass = new SecureChars(unwrapKey("email", currentAccount.name, currentAccount.emailPass));
-        SecureChars secureGpgPass = new SecureChars(unwrapKey("gpg", currentAccount.name, currentAccount.gpgPass));
+        SecureChars secureGpgPass = new SecureChars(unwrapKey(GPG_PURPOSE, currentAccount.name, currentAccount.gpgPass));
         
         mailReader = new IMAP(currentAccount.imapHost, currentAccount.imapPort, currentAccount.auth, currentAccount.starttls, false, currentAccount.username, secureEmailPass);
-        smtp = new SMTP(currentAccount.smtpHost, currentAccount.smtpPort, currentAccount.auth, currentAccount.starttls, currentAccount.username, secureGpgPass, currentAccount.address);
+        smtp = new SMTP(currentAccount.smtpHost, currentAccount.smtpPort, currentAccount.auth, currentAccount.starttls, currentAccount.username, secureEmailPass, currentAccount.address);
 
         Thread syncThread = new Thread(chatSync, "chatSync");
         syncThread.setDaemon(true);
@@ -979,25 +1035,35 @@ public class TerminalChat
                         Note note;
                         while((note=chatQueue.poll())!=null)
                         {
-                            byte[] plainBytes = note.text.getBytes(StandardCharsets.UTF_8);
-                            byte[] encryptedText = GPG.encryptAndSign(plainBytes, currentChat.accountAddress, null, currentChat.friendAddress);
+                            byte[] plainBytes = note.text.getBytes(UTF8);
+                            
+                            char[] gpgPass = unwrapKey(GPG_PURPOSE, currentChat.accountName, currentAccount.gpgPass);
+                            byte[] encryptedText = GPG.encryptAndSign(plainBytes, currentChat.accountAddress, gpgPass, currentChat.friendAddress);
+                            Arrays.fill(gpgPass, '\0');
                             currentNotes.put(JavaTime.epochSecond(), note);
                             if(!smtp.isConnected())
                             {
                                 smtp.connect();
                             }
                             String subject = "lettera "+currentChat.accountKeyid+"-"+currentChat.friendKeyid;
-                            smtp.send(subject, new String(encryptedText,StandardCharsets.UTF_8), currentChat.friendAddress);
+                            smtp.send(subject, new String(encryptedText,UTF8), currentChat.friendAddress);
                             waitMillis = LOOP_MILLIS;
                         }
-                        if(mailReader.isConnected())
+                        if(!mailReader.isConnected())
                         {
                             mailReader.connect();
                         }
                         Message[] messages = after!=null ? mailReader.getMessages(after) : mailReader.getMessages();
                         for(Message item : messages)
                         {
-                            System.err.println(item);
+                            char[] gpgPass = unwrapKey(GPG_PURPOSE, currentChat.accountName, currentAccount.gpgPass);
+                            printMessage(item, gpgPass);
+                            Arrays.fill(gpgPass, '\0');
+                            synchronized (waitMessageLock)
+                            {
+                                Toolkit.getDefaultToolkit().beep();
+                                waitMessageLock.notifyAll();
+                            }
                         }
                         lock.wait(waitMillis);
                     }
@@ -1012,23 +1078,85 @@ public class TerminalChat
                 }
             }
         }
-    };
 
-    private char[] readPassword(String fmt, Object... args)
+    };
+    
+    private void printMessage(Message message, char[] gpgPass)
     {
-        VirtualConsole console = AbstractConsole.getInstance(debug);
-        return console.readPassword(fmt, args);
+        try
+        {
+            if (message.isMimeType("text/plain"))
+            {
+                String body = (String) message.getContent();
+                GPG.DecryptStatus status = new GPG.DecryptStatus();
+                byte[] plaintext = GPG.decryptAndVerify(body.getBytes(UTF8), gpgPass, status);
+//                currentChat.friendKeyid
+                reader.printAbove(currentChat.friendName+"> "+new String(plaintext,UTF8));
+            }
+            else if (message.isMimeType("text/html"))
+            {
+                String bodyHtml = (String) message.getContent();
+                System.out.println("Cuerpo del mensaje (HTML):");
+                System.out.println(bodyHtml);
+                // Podrías usar una librería como Jsoup para parsear este HTML
+            }
+            else if (message.isMimeType("multipart/*"))
+            {
+                Multipart multipart = (Multipart) message.getContent();
+                System.out.println("Este es un mensaje multipart con " + multipart.getCount() + " partes.");
+
+                // Iteramos sobre cada parte
+                for (int i = 0; i < multipart.getCount(); i++)
+                {
+                    BodyPart bodyPart = multipart.getBodyPart(i);
+
+                    // --- IMPORTANTE: Ignorar archivos adjuntos ---
+                    // Si la disposición es ATTACHMENT, probablemente no es el cuerpo principal.
+                    if (Part.ATTACHMENT.equalsIgnoreCase(bodyPart.getDisposition()))
+                    {
+                        System.out.println("Parte " + i + " es un adjunto: " + bodyPart.getFileName());
+                        continue; // Pasamos a la siguiente parte
+                    }
+
+                    // Verificamos si la parte es texto plano o HTML
+                    if (bodyPart.isMimeType("text/plain"))
+                    {
+                        System.out.println("Cuerpo encontrado (Texto Plano en multipart):");
+                        System.out.println(bodyPart.getContent());
+
+                    }
+                    else if (bodyPart.isMimeType("text/html"))
+                    {
+                        System.out.println("Cuerpo encontrado (HTML en multipart):");
+                        System.out.println(bodyPart.getContent());
+                    }
+                }
+            }
+                
+        }
+        catch (IOException | MessagingException | InterruptedException ex)
+        {
+            System.getLogger(TerminalChat.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
     }
 
-    private char[] readPasswordOrPass(String fmt, Object... args)
+
+    private char[] readPasswordOrPass(String prompt)
     {
-        char[] password = readPassword(fmt, args);
-        if(Chars.startsWith(password, "pass:"))
+        if(console)
         {
-            String path = new String(password).replaceFirst("pass:", "");
-            return PASS.getKey(path).toCharArray();
+            char[] password = readPassword(prompt);
+            if(Chars.startsWith(password, "pass:"))
+            {
+                String path = new String(password).replaceFirst("pass:", "");
+                return PASS.getKey(path).toCharArray();
+            }
+            return password;
         }
-        return password;
+        else
+        {
+            return readLine(prompt, '*', "").toCharArray();
+        }
     }
 
     private String wrapKey(String purpose, String name, char[] password)
@@ -1047,5 +1175,16 @@ public class TerminalChat
         char[] password = Byter.charsUTF8(pass);
         Arrays.fill(pass, (byte)0);
         return password;
+    }
+    
+    public static String stripAnsi(String input)
+    {
+        if (input == null || input.isEmpty())
+        {
+            return input;
+        }
+        // AttributedString puede parsear una cadena con códigos ANSI.
+        // El método .toAnsi() la reconstruye, pero el método .plain() la devuelve como texto plano.
+        return AttributedString.stripAnsi(input);
     }    
 }

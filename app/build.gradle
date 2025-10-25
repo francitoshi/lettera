@@ -13,33 +13,41 @@ repositories
     maven { url 'https://jitpack.io' }
 }
 
+def nutVersion = '0.1.39'
+def bouncycastleVersion = '1.81'
+def jlineVersion = '3.29.0'
+
 configurations.all 
 {
     resolutionStrategy 
     {
-        force 'com.github.francitoshi:nut-base:0.1.36'
-        force 'com.github.francitoshi:nut-core:0.1.36'
-        force 'com.github.francitoshi:nut-headless:0.1.36'
+        force "com.github.francitoshi:nut-base:${nutVersion}"
+        force "com.github.francitoshi:nut-core:${nutVersion}"
+        force "com.github.francitoshi:nut-headless:${nutVersion}"
+        force "org.bouncycastle:bcprov-jdk18on:${bouncycastleVersion}"
+        force "org.bouncycastle:bcpkix-jdk18on:${bouncycastleVersion}"
         //failOnVersionConflict()
     }
 }
 
 dependencies 
 {
-    implementation 'com.github.francitoshi:nut-base:0.1.36'
-    implementation 'com.github.francitoshi:nut-core:0.1.36'
-    implementation 'com.github.francitoshi:nut-headless:0.1.36'
- 
-    implementation 'org.bouncycastle:bcprov-jdk18on:1.81'
-    implementation 'org.bouncycastle:bcpkix-jdk18on:1.81'
+    implementation "com.github.francitoshi:nut-base:${nutVersion}"
+    implementation "com.github.francitoshi:nut-core:${nutVersion}"
+    implementation "com.github.francitoshi:nut-headless:${nutVersion}"
+
+    implementation "org.bouncycastle:bcprov-jdk18on:${bouncycastleVersion}"
+    implementation "org.bouncycastle:bcpkix-jdk18on:${bouncycastleVersion}"
     
-    implementation 'org.jline:jline:3.29.0'
-    implementation 'org.jline:jline-terminal:3.29.0'
-    implementation 'org.jline:jline-reader:3.29.0'
+    implementation "org.jline:jline:${jlineVersion}"
+    implementation "org.jline:jline-terminal:${jlineVersion}"
+    implementation "org.jline:jline-reader:${jlineVersion}"
 
     implementation 'com.sun.mail:jakarta.mail:2.0.1'
     implementation 'com.h2database:h2:2.3.232'
     implementation 'de.mkammerer:argon2-jvm:2.12'
+    
+    implementation 'org.yaml:snakeyaml:2.2'
 
     // Use JUnit Jupiter for testing.
     testImplementation libs.junit.jupiter

@@ -1,0 +1,31 @@
+/setup-account
+alice
+alice@localhost
+localhost
+3025
+localhost
+3143
+localhost
+3110
+y
+n
+alice
+alice-email-password
+alice-gpg-passphrase
+/list-accounts
+/setup-friend
+bob
+bob@localhost
+/list-friends
+/chat
+alice
+bob
+shared-secret
+HI BOB
+/wait-message
+HOW ARE YOU DOING TODAY?
+/wait-message
+I'M ALSO DOING WELL.
+BYE
+/wait-message
+/exit

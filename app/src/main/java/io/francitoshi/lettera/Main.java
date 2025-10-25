@@ -21,20 +21,24 @@
 package io.francitoshi.lettera;
 
 import io.nut.base.crypto.gpg.PASS;
+import io.nut.base.encoding.Base64DecoderException;
 import io.nut.base.io.ThrottledInputStream;
 import io.nut.base.options.BooleanOption;
+import io.nut.base.options.MissingOptionParameterException;
 import io.nut.base.options.OptionParser;
 import io.nut.base.options.StringOption;
 import io.nut.base.security.SecureChars;
 import io.nut.base.util.Java;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 import java.util.concurrent.TimeUnit;
-import org.jline.reader.EndOfFileException;
-import org.jline.reader.LineReader;
-import org.jline.reader.LineReaderBuilder;
 import org.jline.terminal.*;
 
 public class Main
@@ -43,7 +47,7 @@ public class Main
     private static final String LETTERA = "lettera";
     private static final String VER = "0.0.1";
     private static final String VERSION
-            = LETTERA + "  version " + VER + " (2025-08-27)\n"
+            = LETTERA + "  version " + VER + " (2025-10-25)\n"
             + "Copyright (C) 2025 by francitoshi@gmail.com\n";
     private static final String REPORT_BUGS
             = "Report bugs to <francitoshi@gmail.com>\n";
@@ -76,10 +80,12 @@ public class Main
             + "usage: lettera [options]\n"
             + "\n"
             + "Options:\n"
+            + " -d  --dir                   path to lettera home folder (~/.lettera)\n"
             + " -L, --license               display software license\n"
             + " -p, --passphrase[=pass]     set the master password\n"
             + " -P, --pass-pass[=path]      set the master password usign command 'pass path'\n"
             + " -I, --input[=path]          set a text file as stdin'\n"
+            + " -O, --output[=path]         set a text file as stdout'\n"
             + " -W, --no-wizard             disable wizards'\n"
             + "     --debug                 debug mode\n"
             + "     --version               print version number\n"
@@ -90,7 +96,7 @@ public class Main
     static final String LETTERA_DB = "lettera.db";
     static final String GMAIL_ADD_PASS = "https://myaccount.google.com/apppasswords";
 
-    public static void main(String... args) throws Exception
+    public static void main(String... args)
     {
 //        String password = PASS.getKey("mutt/flikxxi@gmail.com");
 //        
@@ -100,76 +106,128 @@ public class Main
 //        mailBot.start();
 
         OptionParser options = new OptionParser();
+        StringOption dirOp = options.add(new StringOption('d', "dir"));
         StringOption passphraseOp = options.add(new StringOption('p', "passphrase"));
         StringOption passPassOp = options.add(new StringOption('P', "pass-pass"));
         StringOption inputOp = options.add(new StringOption('I', "input"));
-        StringOption noWizardOp = options.add(new StringOption('W', "no-wizard"));
+        StringOption outputOp = options.add(new StringOption('O', "output"));
+        BooleanOption noWizardOp = options.add(new BooleanOption('W', "no-wizard"));
         BooleanOption license = options.add(new BooleanOption('L', "license"));
+        BooleanOption debugOp = options.add(new BooleanOption('D', "debug"));
         BooleanOption version = options.add(new BooleanOption("version"));
-        BooleanOption debug = options.add(new BooleanOption("debug"));
         BooleanOption help = options.add(new BooleanOption('h', "help"));
 
-        args = options.parse(args);
-
-        if (help.isUsed())
+        if(Snap.isSnap())
         {
-            System.out.println(HELP);
-            return;
+            Snap.fixTmpDir();
         }
-        if (version.isUsed())
+        System.out.println("..."+getHomeDir());   
+        
+        
+        try
         {
-            System.out.println(VERSION);
-            return;
-        }
-        if (license.isUsed())
-        {
-            System.out.println(LICENSE);
-            return;
-        }
-        System.out.println(TerminalChat.WELCOME);
+            args = options.parse(args);
 
-        SecureChars passphrase = null;
-        if (passphraseOp.isUsed())
-        {
-            passphrase = new SecureChars(passphraseOp.getValue().toCharArray());
-            System.out.println("passphrase: ****************");
-        }
-        if (passPassOp.isUsed())
-        {
-            passphrase = new SecureChars(PASS.getKey(passPassOp.getValue()).toCharArray());
-            System.out.println("pass-pass: ****************");
-        }
-
-        final File letteraDir = new File(Java.USER_HOME, ".lettera");
-        final File configFile = new File(letteraDir, "config.properties");
-        final File keystoreFile = new File(letteraDir, "keystore.p12");
-        final File letteraDb = new File(letteraDir, LETTERA_DB);
-
-        letteraDir.mkdirs();
-
-        InputStream input = null;
-
-        if (inputOp.isUsed())
-        {
-            File file = new File(inputOp.getValue());
-            if (!file.exists())
+            if (help.isUsed())
             {
-                System.err.printf("can't find %s'\n", file);
-                System.exit(1);
+                System.out.println(HELP);
+                return;
             }
-            input = new ThrottledInputStream(new FileInputStream(inputOp.getValue()), 100, 400, TimeUnit.MILLISECONDS, true);
+            if (version.isUsed())
+            {
+                System.out.println(VERSION);
+                return;
+            }
+            if (license.isUsed())
+            {
+                System.out.println(LICENSE);
+                return;
+            }
+            System.out.println(TerminalChat.WELCOME);
+
+            SecureChars passphrase = null;
+            if (passphraseOp.isUsed())
+            {
+                passphrase = new SecureChars(passphraseOp.getValue().toCharArray());
+                System.out.println("passphrase: ****************");
+            }
+            if (passPassOp.isUsed())
+            {
+                passphrase = new SecureChars(PASS.getKey(passPassOp.getValue()).toCharArray());
+                System.out.println("pass-pass: ****************");
+            }
+            File altDir = null;
+            if (dirOp.isUsed())
+            {
+                altDir = new File(dirOp.getValue()).getCanonicalFile();
+                if(altDir.exists() && altDir.isFile())
+                {
+                    System.err.println("'%s' is an existing file");
+                    System.exit(1);
+                }
+                System.out.printf("data-path: %s\n", altDir);
+            }
+            
+            final File letteraDir = altDir!=null ? altDir : new File(getHomeDir(), ".lettera");
+            final File configFile = new File(letteraDir, "config.properties");
+            final File keystoreFile = new File(letteraDir, "keystore.p12");
+            final File letteraDb = new File(letteraDir, LETTERA_DB);
+
+            System.out.println("letteraDir="+letteraDir);
+            System.out.println("mkdirs()="+letteraDir.mkdirs());
+            letteraDir.mkdirs();
+
+            InputStream input = null;
+
+            if (inputOp.isUsed())
+            {
+                File file = new File(inputOp.getValue());
+                if (!file.exists())
+                {
+                    System.err.printf("can't find %s'\n", file);
+                    System.exit(1);
+                }
+                input = new ThrottledInputStream(new FileInputStream(file), 66, 200, 60_000, TimeUnit.MILLISECONDS, false);
+            }
+
+            OutputStream output = System.out;
+
+            if (outputOp.isUsed())
+            {
+                output = new FileOutputStream(outputOp.getValue());
+            }
+
+            boolean wizard = !noWizardOp.isUsed();
+            boolean mock = input!=null;
+
+            try (Terminal terminal = getTerminal(mock, input, output))
+            {
+                TerminalChat chat = new TerminalChat(terminal, configFile, keystoreFile, letteraDb, passphrase, mock, debugOp.isUsed());
+                chat.setWizard(wizard);
+                chat.run();
+            }
         }
-        boolean wizard = !noWizardOp.isUsed();
-
-        TerminalBuilder builder = TerminalBuilder.builder();
-
-        builder = input != null ? builder.streams(input, System.out).system(false).dumb(true) : builder;
-
-        try (Terminal terminal = builder.build())
+        catch (NoSuchAlgorithmException | CertificateException | KeyStoreException | MissingOptionParameterException | IOException | Base64DecoderException ex)
         {
-            TerminalChat chat = new TerminalChat(terminal, configFile, keystoreFile, letteraDb, passphrase, debug.isUsed());
-            chat.setWizard(wizard);
-            chat.run();
+            System.getLogger(Main.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
+        catch (Exception ex)
+        {
+            System.getLogger(Main.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
+    }
+    
+    private static Terminal getTerminal(boolean mock, InputStream input, OutputStream output) throws IOException
+    {
+        if(mock)
+        {
+            return new MockTerminal(input, output);
+        }
+        return TerminalBuilder.builder().build();
+    }
+
+    private static String getHomeDir()
+    {
+        return Snap.isSnap() ? Snap.SNAP_USER_DATA : Java.USER_HOME;
     }
 }
