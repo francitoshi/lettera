@@ -1,7 +1,7 @@
 /*
  *  PassphraseManager.java
  *
- *  Copyright (c) 2025 francitoshi@gmail.com
+ *  Copyright (c) 2025-2026 francitoshi@gmail.com
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,9 +33,9 @@ public class PassphraseManager
 {
     static final int MIN_PASS_SIZE = 16;
     
-    public static char[] getPassphrase(boolean debug)
+    public static char[] getPassphrase(boolean allowMock)
     {
-        VirtualConsole console = AbstractConsole.getInstance(debug);
+        VirtualConsole console = AbstractConsole.getInstance(allowMock);
         return console.readPassword("passphrase:");
     }
     

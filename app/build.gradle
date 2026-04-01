@@ -1,4 +1,4 @@
-plugins 
+plugins
 {
     id 'java'
     id 'application'
@@ -7,15 +7,16 @@ plugins
 group = 'com.github.francitoshi'
 version = '0.0.1'
 
-repositories 
+repositories
 {
     mavenCentral()
     maven { url 'https://jitpack.io' }
 }
 
-def nutVersion = '0.1.39'
-def bouncycastleVersion = '1.81'
+def nutVersion = '0.1.63'
+def bouncycastleVersion = '1.83'
 def jlineVersion = '3.29.0'
+def briarproject = '0.4.8.22'
 
 configurations.all 
 {
@@ -30,7 +31,7 @@ configurations.all
     }
 }
 
-dependencies 
+dependencies
 {
     implementation "com.github.francitoshi:nut-base:${nutVersion}"
     implementation "com.github.francitoshi:nut-core:${nutVersion}"
@@ -49,6 +50,10 @@ dependencies
     
     implementation 'org.yaml:snakeyaml:2.2'
 
+    implementation "org.briarproject:tor-linux:0.4.8.22"
+    implementation "org.briarproject:tor-macos:0.4.8.22"
+    implementation "org.briarproject:tor-windows:0.4.8.22"
+
     // Use JUnit Jupiter for testing.
     testImplementation libs.junit.jupiter
 
@@ -61,16 +66,15 @@ dependencies
     implementation libs.guava
 }
 
-// Apply a specific Java toolchain to ease working on different environments.
-java 
+java
 {
-    toolchain 
+    toolchain
     {
         languageVersion = JavaLanguageVersion.of(17)
     }
 }
 
-application 
+application
 {
     mainClass = 'io.francitoshi.lettera.Main'
     applicationName = 'lettera'
@@ -87,7 +91,7 @@ jar
     }
 }
 
-tasks.named('test') 
+tasks.named('test')
 {
     useJUnitPlatform()
 }

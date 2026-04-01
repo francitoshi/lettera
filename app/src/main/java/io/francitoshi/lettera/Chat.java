@@ -1,7 +1,7 @@
 /*
  *  Chat.java
  *
- *  Copyright (c) 2025 francitoshi@gmail.com
+ *  Copyright (c) 2025-2026 francitoshi@gmail.com
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,10 +21,9 @@
 package io.francitoshi.lettera;
 
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.Objects;
 
-class Chat implements Serializable
+public class Chat implements Serializable
 {
     private static final long serialVersionUID = 1L;
     
@@ -35,9 +34,9 @@ class Chat implements Serializable
     public final String friendName;
     public final String friendAddress;
     public final String friendKeyid;
-    public final char[] sharedSecret;
+    public final String mutualAuthProof;
 
-    public Chat(String accountName, String accountAddress, String accountKeyid, String friendName, String friendAddress, String friendKeyid, char[] sharedSecret)
+    public Chat(String accountName, String accountAddress, String accountKeyid, String friendName, String friendAddress, String friendKeyid, String mutualAuthProof)
     {
         this.id = accountName+"-"+friendName;
         this.accountName = accountName;
@@ -46,12 +45,12 @@ class Chat implements Serializable
         this.friendName = friendName;
         this.friendAddress = friendAddress;
         this.friendKeyid = friendKeyid;
-        this.sharedSecret = sharedSecret;
+        this.mutualAuthProof = mutualAuthProof;
     }
 
-    public static Chat build(Account account, Friend friend, char[] sharedSecret)
+    public static Chat build(Account account, Friend friend, String mutualAuthProof)
     {
-        return new Chat(account.name, account.address, account.keyid, friend.name, friend.address, friend.keyid, sharedSecret);
+        return new Chat(account.name, account.address, account.keyid, friend.name, friend.address, friend.keyid, mutualAuthProof);
     }
 
     @Override
@@ -65,7 +64,7 @@ class Chat implements Serializable
         hash = 37 * hash + Objects.hashCode(this.friendName);
         hash = 37 * hash + Objects.hashCode(this.friendAddress);
         hash = 37 * hash + Objects.hashCode(this.friendKeyid);
-        hash = 37 * hash + Arrays.hashCode(this.sharedSecret);
+        hash = 37 * hash + Objects.hashCode(this.mutualAuthProof);
         return hash;
     }
 
@@ -113,7 +112,7 @@ class Chat implements Serializable
         {
             return false;
         }
-        return Arrays.equals(this.sharedSecret, other.sharedSecret);
+        return Objects.equals(this.mutualAuthProof, other.mutualAuthProof);
     }
 
 
@@ -144,9 +143,9 @@ class Chat implements Serializable
         {
             sb.append("friendKeyid: ").append(this.friendKeyid).append(" >> ").append(other.friendKeyid).append('\n');
         }
-        if (!Arrays.equals(this.sharedSecret, other.sharedSecret))
+        if (!Objects.equals(this.mutualAuthProof, other.mutualAuthProof))
         {
-            sb.append("sharedSecret: ").append(this.sharedSecret).append(" >> ").append(other.sharedSecret).append('\n');
+            sb.append("mutualAuthProof: ").append(this.mutualAuthProof).append(" >> ").append(other.mutualAuthProof).append('\n');
         }
         return sb.toString();
     }

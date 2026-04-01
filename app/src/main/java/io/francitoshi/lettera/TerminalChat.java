@@ -1,7 +1,7 @@
 /*
  *  TerminalChat.java
  *
- *  Copyright (c) 2025 francitoshi@gmail.com
+ *  Copyright (c) 2025-2026 francitoshi@gmail.com
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,13 +20,8 @@
  */
 package io.francitoshi.lettera;
 
-import de.mkammerer.argon2.Argon2Advanced;
-import de.mkammerer.argon2.Argon2Factory;
-import io.nut.base.crypto.KeyStoreManager;
-import io.nut.base.crypto.Kripto;
-import io.nut.base.crypto.Passphraser;
-import io.nut.base.crypto.Rand;
-import io.nut.base.crypto.SecureWrapper;
+import static io.francitoshi.lettera.Lettera.GPG_PURPOSE;
+import static io.francitoshi.lettera.Lettera.UTF8;
 import io.nut.base.crypto.gpg.GPG;
 import io.nut.base.crypto.gpg.MainKey;
 import io.nut.base.crypto.gpg.PASS;
@@ -34,21 +29,21 @@ import io.nut.base.crypto.gpg.PubKey;
 import io.nut.base.crypto.gpg.SecKey;
 import io.nut.base.crypto.gpg.SubKey;
 import io.nut.base.crypto.gpg.UserId;
-import io.nut.base.encoding.Ascii85;
 import io.nut.base.encoding.Base64DecoderException;
+import io.nut.base.encoding.Hex;
+import io.nut.base.figletter.FigLetter;
 import io.nut.base.io.IO;
 import io.nut.base.io.console.AbstractConsole;
+import io.nut.base.net.Emails;
+import io.nut.base.resources.ResourceBundles;
 import io.nut.base.security.SecureChars;
-import io.nut.base.text.Table;
 import io.nut.base.time.JavaTime;
-import io.nut.base.util.Byter;
 import io.nut.base.util.Chars;
 import io.nut.base.util.Parsers;
 import io.nut.base.util.Strings;
 import io.nut.base.util.Utils;
-import io.nut.core.net.mail.IMAP;
+import io.nut.base.util.concurrent.hive.Hive;
 import io.nut.core.net.mail.MailReader;
-import io.nut.core.net.mail.SMTP;
 import jakarta.mail.BodyPart;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
@@ -56,22 +51,16 @@ import jakarta.mail.Multipart;
 import jakarta.mail.Part;
 import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.InternetAddress;
-import java.awt.Toolkit;
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
 import java.util.Locale;
-import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.StringJoiner;
 import java.util.concurrent.BlockingQueue;
@@ -82,47 +71,29 @@ import java.util.regex.Pattern;
 import org.jline.builtins.Completers;
 import static org.jline.builtins.Completers.TreeCompleter.node;
 import org.jline.reader.Completer;
+import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
+import org.jline.reader.UserInterruptException;
 import org.jline.reader.impl.completer.StringsCompleter;
 import org.jline.terminal.Terminal;
-import org.jline.utils.AttributedString;
 
 /**
  *
  * @author franci
  */
-public class TerminalChat
+public class TerminalChat extends Lettera
 {
     //https://patorjk.com/software/taag/#p=display&f=miniwi&t=lettera
 
-    static final String VERSION = Utils.firstNonNull(Main.class.getPackage().getImplementationVersion(), "dev");
-    static final String LETTERA;
-    public static final String WELCOME;
+    static final int LOOPS = 5;
     private static final String HELP;
     static 
     {
         ResourceBundle bundle = ResourceBundle.getBundle(TerminalChat.class.getName(), Locale.getDefault());
-        LETTERA = getTextResource("lettera.txt", "LETTERA");
-        String welcomeFileName = bundle.getString("welcome");
-        WELCOME = getTextResource(welcomeFileName, "welcome").replace("$LETTERA$", LETTERA).replace("$VERSION$", VERSION);
+        
         String helpFileName = bundle.getString("help");
-        HELP = getTextResource(helpFileName, "help");
-    }
-
-    static final String DB = "db";
-    
-    private static String getTextResource(String fileName, String defaultValue)
-    {
-        try
-        {
-            return IO.readInputStreamAsString(TerminalChat.class.getResourceAsStream(fileName));
-        }
-        catch (IOException ex)
-        {
-            System.getLogger(TerminalChat.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-        }
-        return defaultValue;        
+        HELP = ResourceBundles.getResourceAsString(TerminalChat.class, helpFileName, "help");
     }
 
 //    final Hive hive = new Hive(Hive.CORES, Hive.CORES, Hive.CORES, 30_000);
@@ -130,48 +101,24 @@ public class TerminalChat
 //    final Bee<Integer> imapBee; 
 //    final Bee<Note> smtpBee; 
 
-    private static final Kripto KRIPTO = Kripto.getInstance(false);
-    private static final Rand RAND = Kripto.getRand();
-    private static final GPG GPG = new GPG().setArmor(true);
-    private static final Charset UTF8 = StandardCharsets.UTF_8;
-    
+///666    MOVER VARIALES MIEMBRO A LETTERA Y ADAPTAR CONSTRUCTOR
+///666    CONFIGURAR UNA CUENTA MEDIANTE COMANDO        
     private final Terminal terminal;
-    private final File configFile;
-    private final File keystoreFile;
-    private final File letteraDb;
-    private volatile LetteraDb db;
-    private volatile SecureChars passphrase;
-    private volatile SecureWrapper wrapper;
-    private volatile Passphraser passphraser;
-    private volatile KeyStoreManager ksm;
-    private final boolean mock;
-    private final boolean debug;
     
     private volatile LineReader reader;
-    private volatile boolean console;
-    private volatile Account currentAccount;
-    private volatile Friend currentFriend;
-    private volatile Chat currentChat;
-    private volatile Map<Long, Note> currentNotes;
     private volatile MailReader mailReader;
-    private volatile SMTP smtp;
+//666    private volatile SMTP smtp;
     private volatile boolean wizard;
-    private final PrintStream out;
     
-    private volatile SecKey[] secs;
-    private volatile PubKey[] pubs;
+    private volatile boolean chatActive;
+    private final BlockingQueue<Note> chatQueue = new LinkedBlockingQueue<>(8);
+    private final Object lock = new Object();
+    
         
     public TerminalChat(Terminal terminal, File configFile, File keystoreFile, File letteraDb, SecureChars passphrase, boolean mock, boolean debug)
     {
+        super(IO.asPrintStream(terminal.output()), configFile, keystoreFile, letteraDb, passphrase, mock, debug);
         this.terminal = terminal;
-        this.configFile = configFile;
-        this.keystoreFile = keystoreFile;
-        this.letteraDb = letteraDb;
-        this.passphrase = passphrase;
-        this.mock = mock;
-        this.debug = debug;
-        this.console = System.console()!=null;
-        this.out =  IO.asPrintStream(terminal.output());
     }
     
     public void setWizard(boolean value)
@@ -183,6 +130,8 @@ public class TerminalChat
     private static final String _ABOUT = "/about";
     private static final String _SETUP_ACCOUNT = "/setup-account";
     private static final String _SETUP_FRIEND = "/setup-friend";
+    private static final String _IMPORT_ACCOUNTS = "/import-accounts";
+    private static final String _IMPORT_FRIENDS = "/import-friends";
     private static final String _LIST_ACCOUNTS = "/list-accounts";
     private static final String _LIST_FRIENDS = "/list-friends";
     private static final String _LIST_CHATS = "/list-chats";
@@ -193,83 +142,30 @@ public class TerminalChat
     private static final String _PASSPHRASE = "/passphrase";
     private static final String _EXIT = "/exit";
 
-    private static final int KEY_BYTES = 32;
-    private static final int SALT_BYTES = 32;
-    private static final Argon2Advanced ARGON2 = Argon2Factory.createAdvanced(Argon2Factory.Argon2Types.ARGON2id, SALT_BYTES, KEY_BYTES);
     
     private final Object waitMessageLock = new Object();
+
+    @Override
+    public TerminalChat open() throws IOException, Base64DecoderException, InterruptedException, KeyStoreException, NoSuchAlgorithmException, CertificateException, Exception
+    {
+        return (TerminalChat) super.open();
+    }
     
     void run() throws IOException, InterruptedException, Base64DecoderException, NoSuchAlgorithmException, CertificateException, KeyStoreException, Exception
     {
-        boolean firstTime = !configFile.exists() || !keystoreFile.exists();
-        Config config = Config.load(configFile);
-        if(config==null)
-        {
-            config = Config.createDefault(configFile);
-            firstTime = true;
-        }
-        
-        if(passphrase==null)
-        {
-            passphrase = new SecureChars(firstTime ? PassphraseManager.createPassphrase(mock) : PassphraseManager.getPassphrase(mock));
-        }
-        long t0 = System.nanoTime();
-        char[] pass = passphrase.getChars();
-        byte[] seed = ARGON2.rawHash(config.iterations, config.memoryKB, config.parallelism, pass, config.getSalt());
-        Arrays.fill(pass, '\0');
-
-        long t1 = System.nanoTime();
-        if(debug)
-        {
-            this.out.printf("argon2 = %d ms\n", TimeUnit.NANOSECONDS.toMillis(t1-t0));
-        }
-        
-        passphraser = KRIPTO.getPassphraserHkdf(KRIPTO.hkdfWithSha512, seed, config.getSalt());
-        ksm = KRIPTO.getKeyStoreManagerPKCS12(passphraser);
-        wrapper = new SecureWrapper(KRIPTO, seed, Kripto.Hkdf.HkdfWithSha512);
-        
-        if(keystoreFile.exists())
-        {        
-            ksm.load(keystoreFile);
-        }
-        else
-        {
-            firstTime = true;
-        }
-
-        char[] dbPass;        
-        if(firstTime || (dbPass=ksm.getPassphrase(DB))==null)
-        {
-            dbPass = Ascii85.encode(RAND.nextBytes(new byte[32]));
-            ksm.setPassphrase(DB, dbPass);
-            firstTime = true;
-        }
-        
-        if(ksm.isModified())
-        {
-            ksm.store(keystoreFile);
-        }
-        
-        loadAllKeys();
+        Hive hive = new Hive(8).add(storeBee, printBee);
         reader = buildLineReader(getCommandsCompleter());
 
-        this.db = new LetteraDb(this.letteraDb, dbPass);
         try
         {
             ansiTitle("lettera");
-
-            if(wizard && listAccounts()==0)
+            if(wizard)
             {
-                this.out.println("You need to create an account.");
-                this.out.println("lettera>"+_SETUP_ACCOUNT);
-                setupAccount();
+                boolean wa = countAccounts()==0 && countSecKeys()>0;
+                boolean wf = countFriends()==0 && countPubKeys()>0;
+                wizardSetup(wa, wf);
             }
-            if(wizard && listFriends()==0)
-            {
-                this.out.println("You need to create a friend.");
-                this.out.println("lettera>"+_SETUP_FRIEND);
-                setupFriend();
-            }
+                
             listChats();
             
             showHelp();
@@ -288,7 +184,7 @@ public class TerminalChat
                     }
                     else if (line.startsWith(_ABOUT))
                     {
-                        this.out.println(TerminalChat.WELCOME);
+                        this.out.println(Main.WELCOME_TXT);
                     }
                     else if (line.startsWith(_SETUP_ACCOUNT))
                     {
@@ -297,6 +193,14 @@ public class TerminalChat
                     else if (line.startsWith(_SETUP_FRIEND))
                     {
                         setupFriend();
+                    }
+                    else if (line.startsWith(_IMPORT_ACCOUNTS))
+                    {
+                        importAccounts();
+                    }
+                    else if (line.startsWith(_IMPORT_FRIENDS))
+                    {
+                        importFriends();
                     }
                     else if (line.startsWith(_LIST_ACCOUNTS))
                     {
@@ -315,11 +219,11 @@ public class TerminalChat
                         String[] args = line.split(" ");
                         if(args.length>1)
                         {
-                            startChat(args[1]);
+                            startChat(args[1], Mode.ReadWrite);
                         }
                         else
                         {
-                            startChat(setupChat());
+                            startChat(setupChat(), Mode.ReadWrite);
                         }
                     }
                     else if (line.startsWith(_UNREAD))
@@ -354,10 +258,7 @@ public class TerminalChat
                 {
                     Note note = new Note(JavaTime.epochSecond(), currentChat.id, currentChat.accountAddress, currentChat.friendAddress, currentChat.accountKeyid, currentChat.friendKeyid, 0, 0, line);
                     chatQueue.add(note);
-                    synchronized(lock)
-                    {
-                        lock.notifyAll();
-                    }
+                    mailGetBot.sync();
                 }
                 prompt = currentChat!=null ? currentChat.accountName : "lettera";
             }
@@ -368,12 +269,31 @@ public class TerminalChat
         }
     }
 
+    public void banner(String text)
+    {
+        //"smblock.tlf","kompaktblk.flf","miniwi.flf","terminus.flf"
+        FigLetter fl;
+        try
+        {
+            fl = FigLetter.getInstance("miniwi", Main.class.getResourceAsStream("miniwi.flf"), 1);
+            String s = fl.render(text);
+            reader.printAbove(s);
+        }
+        catch (IOException ex)
+        {
+            System.getLogger(TerminalChat.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
+    }
+    
     private void ansiTitle(String value)
     {
         if(console)
         {
             Utils.ansiTitle(value);
         }
+        reader.printAbove("--------------------------------------------------");
+        banner(value);
+        reader.printAbove("--------------------------------------------------");
     }
 
     private LineReader buildLineReader(Completer completer)
@@ -393,6 +313,24 @@ public class TerminalChat
         }
     }
 
+    int readYesOrNo(String prompt, int loops) throws UserInterruptException, EndOfFileException
+    {
+        for(int i=0;i<loops;i++)
+        {
+            LineReader lineReader = buildLineReader(null);
+            String yn = lineReader.readLine(prompt+"[y/n]: ", null, "y").trim();
+            if(yn.isEmpty() || yn.equalsIgnoreCase("y"))
+            {
+                return 1;
+            }
+            if(yn.trim().equalsIgnoreCase("n"))
+            {
+                return 0;
+            }
+        }
+        return 0;
+    }
+    
     private void showHelp()
     {
         reader.printAbove("");
@@ -426,6 +364,8 @@ public class TerminalChat
 //            list.add(node(from, node(excludeEmail(pubEmails, from).toArray())));
 //        }
 
+        list.add(_IMPORT_ACCOUNTS);
+        list.add(_IMPORT_FRIENDS);
         list.add(_LIST_ACCOUNTS);
         list.add(_LIST_FRIENDS);
         list.add(_LIST_CHATS);
@@ -484,11 +424,6 @@ public class TerminalChat
         return new StringsCompleter(names.toArray(new String[0]));
     }
     
-    private void loadAllKeys() throws IOException, InterruptedException
-    {
-        secs = GPG.getSecKeys();
-        pubs = GPG.getPubKeys();
-    }
             
     static final Pattern EMAIL_PATTERN1 = Pattern.compile(".*<(.+@.+)>.*");
     static final Pattern EMAIL_PATTERN2 = Pattern.compile("([^<>]+@[^<>]+)");
@@ -542,16 +477,24 @@ public class TerminalChat
     
     private Account setupAccount() throws GeneralSecurityException
     {
+        return setupAccount(null, null, null);
+    }
+    private Friend setupFriend() throws GeneralSecurityException
+    {
+        return setupFriend(null, null, null);
+    }
+
+    private Account setupAccount(String name, String address, String keyid) throws GeneralSecurityException
+    {
         ansiTitle("setup-account");
-        
         LineReader lineReader = buildLineReader(null);
-        String name = lineReader.readLine("name: ");
+        name = name!=null ? lineReader.readLine("name: ", null, name) : lineReader.readLine("name: ");
         if(name.isEmpty())
         {
             return null;
         }
 
-        String address="";
+        address = address!=null ? address : "";
         String smtpHost="";
         int smtpPort=0;
         String imapHost="";
@@ -562,7 +505,7 @@ public class TerminalChat
         boolean starttls = true;
         String username="";
         String emailPass="";
-        String keyid="";
+        keyid="";
         String gpgPass="";
                 
         Account account = db.getAccount(name);
@@ -651,7 +594,7 @@ public class TerminalChat
         }
         else
         {
-            emailPass=wrapKey("email", name, password);
+            emailPass=keyWrapper.wrapKey("email", name, password);
         }
         lineReader.zeroOut();
 
@@ -683,7 +626,7 @@ public class TerminalChat
         }
         else
         {
-            gpgPass=wrapKey(GPG_PURPOSE, name, password);
+            gpgPass=keyWrapper.wrapKey(GPG_PURPOSE, name, password);
         }
         lineReader.zeroOut();
         
@@ -693,23 +636,21 @@ public class TerminalChat
         this.db.commit();
        
         return account;        
-    }
+    }    
     
-    private static final String GPG_PURPOSE = "gpg";
-    
-    private Friend setupFriend()
+    private Friend setupFriend(String name, String address, String keyid)
     {
         ansiTitle("setup-friend");
         
         LineReader lineReader = buildLineReader(null);
-        String name = lineReader.readLine("name: ");
+        name = name!=null ? lineReader.readLine("name: ", null, name) : lineReader.readLine("name: ");
         if(name.isEmpty())
         {
             return null;
         }
 
-        String address="";
-        String keyid="";
+        address="";
+        keyid="";
                 
         Friend friend = this.db.getFriend(name);
         if(friend!=null)
@@ -756,6 +697,85 @@ public class TerminalChat
         return friend;
         
     }
+
+    private void wizardSetup(boolean accounts, boolean friends) throws GeneralSecurityException, IOException, InterruptedException
+    {
+        ansiTitle("wizard");
+        if(accounts)
+        {
+            int yn = readYesOrNo("You can import your gpg secrect keys as accounts.\nDo you want to import them now?", LOOPS);
+            if(yn==1)
+            {
+                reader.printAbove("lettera>"+_IMPORT_ACCOUNTS);
+                importAccounts();
+            }
+        }
+        if(friends)
+        {
+            int yn = readYesOrNo("You can import your gpg public keys as friends.\nDo you want to import them now?", LOOPS);
+            if(yn==1)
+            {
+                this.out.println("lettera>"+_IMPORT_FRIENDS);
+                importFriends();
+            }
+        }
+        if(accounts && countAccounts()==0)
+        {
+            int yn = readYesOrNo("Do you want to create a new account?", LOOPS);
+            if(yn==1)
+            {
+                this.out.println("lettera>"+_SETUP_ACCOUNT);
+                setupAccount();
+            }
+        }
+        if(friends && countFriends()==0)
+        {
+            int yn = readYesOrNo("Do you want to create a new friend?", LOOPS);
+            if(yn==1)
+            {
+                this.out.println("lettera>"+_SETUP_FRIEND);
+                setupFriend();
+            }
+        }
+    }
+
+    private void importAccounts() throws IOException, InterruptedException, GeneralSecurityException 
+    {
+        SecKey[] items = GPG.getSecKeys();
+
+        for(int r=0;r<items.length;r++)
+        {
+            UserId[] uids = items[r].getUids();
+            String keyid = items[r].getMain().keyid;
+            for(int u=0;u<uids.length;u++)
+            {
+                ansiTitle("import-accounts");
+                reader.printAbove("uid: "+uids[u].uid);
+                reader.printAbove("keyid: "+keyid);
+                if(1==readYesOrNo("Import?", LOOPS))
+                {
+                    String[] nameEmail = Emails.parseEmailAddress(uids[u].uid);
+                    setupAccount(nameEmail[0], nameEmail[1], keyid);
+                }
+            }
+        }
+    }
+    private void importFriends() throws GeneralSecurityException
+    {
+        Friend[] items = db.getFriends();
+
+        for(int r=0;r<items.length;r++)
+        {
+            ansiTitle("import-friends");
+            reader.printAbove("name: "+items[r].name);
+            reader.printAbove("address: "+items[r].address);
+            reader.printAbove("keyid: "+items[r].keyid);
+            if(1==readYesOrNo("Import?", LOOPS))
+            {
+                setupFriend(items[r].name, items[r].address, items[r].keyid);
+            }
+        }
+    }
     
     private String setupChat()
     {
@@ -789,17 +809,28 @@ public class TerminalChat
         }
         lineReader.printAbove(friend.name+" / "+friend.address+" / "+friend.keyid);
         
-        
         lineReader.printAbove("You need a shared secret with your friend to verify that there's no man-in-the-middle attack. You can skip this, but you'll have to verify the keys are correct yourself.");
 
         char[] sharedSecret = readPasswordOrPass("shared secret: ");
-        if(sharedSecret.length==0 && sharedSecret!=null)
+        String mutualAuthProof = null;
+        if(sharedSecret!=null && sharedSecret.length!=0)
         {
-            sharedSecret=null;
+            long t0 = System.nanoTime();
+
+            byte[] salt = (account.keyid+friend.keyid).getBytes(StandardCharsets.UTF_8);
+            byte[] sharedSecret2 = ARGON2.rawHash(128, 64*1024, 1, sharedSecret, salt);
+            byte[][] hash = KRIPTO.deriveMutualAuthProof(Hex.decode(account.keyid), Hex.decode(friend.keyid), sharedSecret2);
+            mutualAuthProof = Hex.encode(hash[0])+"-"+Hex.encode(hash[1]);
+
+            long t1 = System.nanoTime();
+            if(debug)
+            {
+                this.out.printf("argon2 = %d ms %s\n", TimeUnit.NANOSECONDS.toMillis(t1-t0), mutualAuthProof);
+            }
         }
         lineReader.zeroOut();
         
-        Chat chat = new Chat(account.name, account.address, account.keyid, friend.name, friend.address, friend.keyid, sharedSecret);
+        Chat chat = new Chat(account.name, account.address, account.keyid, friend.name, friend.address, friend.keyid, mutualAuthProof);
         
         this.db.putChat(chat);
         this.db.commit();
@@ -926,161 +957,8 @@ public class TerminalChat
         }
         return sb.append(sj).toString();
     }
-
-    private static final String HR = "----------------------------------------";
-
-    private int listAccounts()
-    {
-        Account[] items = db.getAccounts();
-        Table table = new Table(items.length, 3, false);
-        for(int r=0;r<items.length;r++)
-        {
-            table.setCell(r,0, items[r].name);
-            table.setCell(r,1, items[r].address);
-            table.setCell(r,2, items[r].keyid);
-        }
-        this.out.println(HR);
-        this.out.println("Accounts: "+items.length);
-        this.out.println(table.toString());
-        return items.length;
-    }
-
-    private int listFriends()
-    {
-        Friend[] items = db.getFriends();
-        Table table = new Table(items.length, 3, false);
-        for(int r=0;r<items.length;r++)
-        {
-            table.setCell(r,0, items[r].name);
-            table.setCell(r,1, items[r].address);
-            table.setCell(r,2, items[r].keyid);
-        }
-        this.out.println(HR);
-        this.out.println("Friends: "+items.length);
-        this.out.println(table.toString());
-        return items.length;
-    }
-
-    private int listChats()
-    {
-        Chat[] items = db.getChats();
-        Table table = new Table(items.length, 3, false);
-        for(int r=0;r<items.length;r++)
-        {
-            table.setCell(r,0, items[r].id);
-            table.setCell(r,1, items[r].accountAddress);
-            table.setCell(r,2, items[r].friendAddress);
-        }
-        this.out.println(HR);
-        this.out.println("Chats: "+items.length);
-        this.out.println(table.toString());
-        return items.length;
-    }
-
-    private String startChat(String session)
-    {
-        Chat chat = db.getChat(session);
-        if(chat==null)
-        {
-            return null;
-        }
-//666        verificar que no han cambiado las direcciones ni las keyid
-                
-        currentAccount = db.getAccount(chat.accountName);
-        currentFriend = db.getFriend(chat.friendName);
-        
-        Chat chat2 = Chat.build(currentAccount, currentFriend, chat.sharedSecret);
-
-        if(!chat.equals(chat2))
-        {
-            System.err.println("WARNING: FIELDS CHANGED");
-            System.err.println(chat.diff(chat2));
-        }
-        
-        currentChat = chat;
-        currentNotes = db.getNotes(session);
-        
-        SecureChars secureEmailPass = new SecureChars(unwrapKey("email", currentAccount.name, currentAccount.emailPass));
-        SecureChars secureGpgPass = new SecureChars(unwrapKey(GPG_PURPOSE, currentAccount.name, currentAccount.gpgPass));
-        
-        mailReader = new IMAP(currentAccount.imapHost, currentAccount.imapPort, currentAccount.auth, currentAccount.starttls, false, currentAccount.username, secureEmailPass);
-        smtp = new SMTP(currentAccount.smtpHost, currentAccount.smtpPort, currentAccount.auth, currentAccount.starttls, currentAccount.username, secureEmailPass, currentAccount.address);
-
-        Thread syncThread = new Thread(chatSync, "chatSync");
-        syncThread.setDaemon(true);
-        syncThread.start();       
-        return chat.accountName;
-    }
     
-    private volatile boolean chatActive;
-    private final BlockingQueue<Note> chatQueue = new LinkedBlockingQueue<>(8);
-    private final Object lock = new Object();
-    
-    static final int LOOP_MILLIS = 5_000;
-    private final Runnable chatSync = new Runnable()
-    {
-        @Override
-        public void run()
-        {
-            int waitMillis = LOOP_MILLIS;
-            chatActive=true;
-            Date after=null;
-            while(chatActive)
-            {
-                synchronized(lock)
-                {
-                    waitMillis *= 2;
-                    try
-                    {
-                        Note note;
-                        while((note=chatQueue.poll())!=null)
-                        {
-                            byte[] plainBytes = note.text.getBytes(UTF8);
-                            
-                            char[] gpgPass = unwrapKey(GPG_PURPOSE, currentChat.accountName, currentAccount.gpgPass);
-                            byte[] encryptedText = GPG.encryptAndSign(plainBytes, currentChat.accountAddress, gpgPass, currentChat.friendAddress);
-                            Arrays.fill(gpgPass, '\0');
-                            currentNotes.put(JavaTime.epochSecond(), note);
-                            if(!smtp.isConnected())
-                            {
-                                smtp.connect();
-                            }
-                            String subject = "lettera "+currentChat.accountKeyid+"-"+currentChat.friendKeyid;
-                            smtp.send(subject, new String(encryptedText,UTF8), currentChat.friendAddress);
-                            waitMillis = LOOP_MILLIS;
-                        }
-                        if(!mailReader.isConnected())
-                        {
-                            mailReader.connect();
-                        }
-                        Message[] messages = after!=null ? mailReader.getMessages(after) : mailReader.getMessages();
-                        for(Message item : messages)
-                        {
-                            char[] gpgPass = unwrapKey(GPG_PURPOSE, currentChat.accountName, currentAccount.gpgPass);
-                            printMessage(item, gpgPass);
-                            Arrays.fill(gpgPass, '\0');
-                            synchronized (waitMessageLock)
-                            {
-                                Toolkit.getDefaultToolkit().beep();
-                                waitMessageLock.notifyAll();
-                            }
-                        }
-                        lock.wait(waitMillis);
-                    }
-                    catch (InterruptedException | IOException | MessagingException ex)
-                    {
-                        System.getLogger(TerminalChat.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.getLogger(TerminalChat.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-                    }
-                }
-            }
-        }
-
-    };
-    
+        
     private void printMessage(Message message, char[] gpgPass)
     {
         try
@@ -1096,14 +974,14 @@ public class TerminalChat
             else if (message.isMimeType("text/html"))
             {
                 String bodyHtml = (String) message.getContent();
-                System.out.println("Cuerpo del mensaje (HTML):");
-                System.out.println(bodyHtml);
+                reader.printAbove("Cuerpo del mensaje (HTML):");
+                reader.printAbove(bodyHtml);
                 // Podrías usar una librería como Jsoup para parsear este HTML
             }
             else if (message.isMimeType("multipart/*"))
             {
                 Multipart multipart = (Multipart) message.getContent();
-                System.out.println("Este es un mensaje multipart con " + multipart.getCount() + " partes.");
+                reader.printAbove("Este es un mensaje multipart con " + multipart.getCount() + " partes.");
 
                 // Iteramos sobre cada parte
                 for (int i = 0; i < multipart.getCount(); i++)
@@ -1114,21 +992,21 @@ public class TerminalChat
                     // Si la disposición es ATTACHMENT, probablemente no es el cuerpo principal.
                     if (Part.ATTACHMENT.equalsIgnoreCase(bodyPart.getDisposition()))
                     {
-                        System.out.println("Parte " + i + " es un adjunto: " + bodyPart.getFileName());
+                        reader.printAbove("Parte " + i + " es un adjunto: " + bodyPart.getFileName());
                         continue; // Pasamos a la siguiente parte
                     }
 
                     // Verificamos si la parte es texto plano o HTML
                     if (bodyPart.isMimeType("text/plain"))
                     {
-                        System.out.println("Cuerpo encontrado (Texto Plano en multipart):");
-                        System.out.println(bodyPart.getContent());
+                        reader.printAbove("Cuerpo encontrado (Texto Plano en multipart):");
+                        reader.printAbove(bodyPart.getContent().toString());
 
                     }
                     else if (bodyPart.isMimeType("text/html"))
                     {
-                        System.out.println("Cuerpo encontrado (HTML en multipart):");
-                        System.out.println(bodyPart.getContent());
+                        reader.printAbove("Cuerpo encontrado (HTML en multipart):");
+                        reader.printAbove(bodyPart.getContent().toString());
                     }
                 }
             }
@@ -1157,34 +1035,5 @@ public class TerminalChat
         {
             return readLine(prompt, '*', "").toCharArray();
         }
-    }
-
-    private String wrapKey(String purpose, String name, char[] password)
-    {
-        String purposeName = purpose+"+"+name;
-        byte[] pass = Byter.bytesUTF8(password);
-        String wrapped = wrapper.wrap(pass, purposeName);
-        Arrays.fill(pass, (byte)0);
-        return wrapped;
-    }
-    
-    private char[] unwrapKey(String purpose, String name, String wrapped)
-    {
-        String purposeName = purpose+"+"+name;
-        byte[] pass = wrapper.unwrap(wrapped, purposeName);
-        char[] password = Byter.charsUTF8(pass);
-        Arrays.fill(pass, (byte)0);
-        return password;
-    }
-    
-    public static String stripAnsi(String input)
-    {
-        if (input == null || input.isEmpty())
-        {
-            return input;
-        }
-        // AttributedString puede parsear una cadena con códigos ANSI.
-        // El método .toAnsi() la reconstruye, pero el método .plain() la devuelve como texto plano.
-        return AttributedString.stripAnsi(input);
     }    
 }

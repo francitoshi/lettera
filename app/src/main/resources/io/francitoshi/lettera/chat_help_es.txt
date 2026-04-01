@@ -1,0 +1,12 @@
+/help		: mostrar esta ayuda
+/setup-account  : crear/editar/borrar cuenta
+/setup-friend   : crear/editar/borrar amigo
+/setup-chat     : crear/editar/borrar chat
+/list-accounts  : listar cuentas
+/list-friends   : listar amigos
+/list-chats     : listar chats
+/chat session	: iniciar/countinuar chat con tu amigo
+/unread		: mostrar chats con mensajes sin leer
+/exit		: salir de la app
+
+Teclea un comando.
