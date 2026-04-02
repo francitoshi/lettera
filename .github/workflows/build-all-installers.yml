@@ -30,10 +30,10 @@ jobs:
       - name: Build Linux artifacts (.deb + .tar.gz)
         run: ./gradlew clean buildDeb distTar --no-daemon --console=plain
 
-      - name: Build Snap (usando acción oficial de Canonical)
-        uses: snapcore/action-build@v1
-        with:
-          path: .                     # construye desde la raíz (usa snap/snapcraft.yaml)
+#      - name: Build Snap (usando acción oficial de Canonical)
+#        uses: snapcore/action-build@v1
+#        with:
+#          path: .                     # construye desde la raíz (usa snap/snapcraft.yaml)
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
