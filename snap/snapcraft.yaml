@@ -12,21 +12,23 @@ confinement: strict
 apps:
   lettera:
     command: bin/lettera
-    environment:
-      JAVA_HOME: $SNAP/usr/lib/jvm/java-17-openjdk-amd64
-      PATH: $JAVA_HOME/bin:$PATH
     plugs:
-      - network
       - home
+      - network
+      - removable-media
 
 parts:
   lettera:
     plugin: dump
-    # dynamically use the same version declared above
-    source: app/build/distributions/lettera-${SNAPCRAFT_PROJECT_VERSION}.zip
-    organize:
-      lettera-${SNAPCRAFT_PROJECT_VERSION}/bin/lettera: bin/lettera
-      lettera-${SNAPCRAFT_PROJECT_VERSION}/bin/: bin/
-      lettera-${SNAPCRAFT_PROJECT_VERSION}/lib/: lib/
+    source: .
+    source-type: local
+    override-build: |
+      craftctl default
+      echo "→ Construyendo con Gradle (installDist)..."
+      ./gradlew clean installDist --no-daemon --console=plain -x test
+      echo "→ Copiando distribución al Snap..."
+      cp -r build/install/lettera/* $CRAFT_PART_INSTALL/
+    build-packages:
+      - openjdk-21-jdk-headless
     stage-packages:
-      - openjdk-17-jre
+      - default-jre-headless
