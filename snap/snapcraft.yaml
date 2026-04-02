@@ -1,7 +1,7 @@
 name: lettera
-base: core22
+base: core24
 version: '0.0.1'
-summary: Simple Java command-line application
+summary: Aplicación Lettera
 description: |
   Lettera is a Java 17 command-line application that requires internet access 
   and uses configuration files from the user's home directory.

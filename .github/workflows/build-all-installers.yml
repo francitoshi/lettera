@@ -27,24 +27,24 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Build Linux artifacts
+      - name: Build Linux artifacts (.deb + .tar.gz)
         run: ./gradlew clean buildDeb distTar --no-daemon --console=plain
 
-      - name: Build Snap
-        run: |
-          sudo snap install snapcraft --classic
-          snapcraft pack --destructive-mode
+      - name: Build Snap (usando acción oficial de Canonical)
+        uses: snapcore/action-build@v1
+        with:
+          path: .                     # construye desde la raíz (usa snap/snapcraft.yaml)
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-installers
           path: |
-            build/distributions/*.deb
-            build/distributions/*.tar.gz
-            *.snap
+            build/distributions/lettera*.deb
+            build/distributions/lettera*.tar.gz
+            lettera*.snap
             install.sh
-
+            
   # ==================== WINDOWS ====================
   windows:
     runs-on: windows-latest
