@@ -134,3 +134,43 @@ tasks.buildDeb
     dependsOn installDist
 }
 //execute './gradlew clean buildDeb' to get debian package
+//execute 'sudo apt install $(find -iname "*.deb")' to install the debian package
+
+
+tasks.register('createWindowsInstaller', Exec)
+{
+    dependsOn installDist
+    group = 'distribution'
+    description = 'Crea instalador .exe para Windows con jpackage (self-contained + jlink)'
+
+    def javaHome = System.getenv('JAVA_HOME') ?: 
+        javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+            .get().metadata.installationPath.asFile.absolutePath
+
+    def jpackage = "${javaHome}\\bin\\jpackage.exe"   // ← nota: .exe en Windows
+
+    // Nombre exacto del JAR (ajusta si es necesario)
+    def mainJar = "lettera-${project.version}.jar"   // normalmente es este
+
+    commandLine jpackage,
+            '--input', installDist.destinationDir.absolutePath,
+            '--name', 'lettera',
+            '--main-class', 'Main',
+            '--main-jar', mainJar,
+            '--type', 'exe',                    // también puedes usar 'msi'
+            '--dest', 'build/distributions',
+            '--app-version', project.version,
+            '--vendor', 'francitoshi',
+            '--description', 'lettera a chat app using gpg+email',
+            '--win-console',                    // muestra consola (perfecto para CLI)
+            '--win-dir-chooser',                // permite elegir carpeta de instalación
+            '--win-shortcut',                   // crea acceso directo en Escritorio
+            '--win-menu',                       // añade al Menú Inicio
+            '--win-menu-group', 'lettera',
+            '--verbose'
+
+    doLast 
+    {
+        println "✅ Instalador Windows creado en: build/distributions/lettera-${project.version}.exe"
+    }
+}
