@@ -137,12 +137,16 @@ tasks.buildDeb
 //execute 'sudo apt install $(find -iname "*.deb")' to install the debian package
 
 
-// ==================== INSTALADOR WINDOWS (jpackage + jlink) ====================
+// ==================== INSTALADOR WINDOWS (jpackage + jlink) - Multi-módulo (:app) ====================
 tasks.register('createWindowsInstaller', Exec) 
 {
-    dependsOn installDist
+    dependsOn ':app:installDist'
     group = 'distribution'
     description = 'Crea instalador .exe para Windows con jpackage (self-contained)'
+
+    def appProject = project(':app')
+    def installDir = appProject.installDist.destinationDir
+    def jarName   = "lettera-${project.version}.jar"   // nombre del JAR dentro de lib/
 
     def javaHome = System.getenv('JAVA_HOME') ?:
         javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
@@ -150,28 +154,25 @@ tasks.register('createWindowsInstaller', Exec)
 
     def jpackage = "${javaHome}\\bin\\jpackage.exe"
 
-    // Nombre correcto del JAR para el proyecto "lettera"
-    def mainJar = "${rootProject.name}-${project.version}.jar"
-
     commandLine jpackage,
-            '--input', installDist.destinationDir.absolutePath,
+            '--input', installDir.absolutePath,
             '--name', 'lettera',
             '--main-class', 'Main',
-            '--main-jar', mainJar,
+            '--main-jar', "lib/${jarName}",   // ← clave: el JAR está dentro de la carpeta lib/
             '--type', 'exe',
             '--dest', 'build/distributions',
             '--app-version', project.version,
             '--vendor', 'francitoshi',
-            '--description', 'Aplication Lettera',
-            '--win-console',                    // muestra consola (ideal para CLI)
-            '--win-dir-chooser',                // permite elegir carpeta de instalación
-            '--win-shortcut',                   // acceso directo en Escritorio
-            '--win-menu',                       // añade al Menú Inicio
+            '--description', 'Aplicación Lettera',
+            '--win-console',
+            '--win-dir-chooser',
+            '--win-shortcut',
+            '--win-menu',
             '--win-menu-group', 'lettera',
             '--verbose'
 
     doLast 
     {
-        println "✅ Windows installer created: build/distributions/lettera-${project.version}.exe"
+        println "✅ Instalador Windows creado: build/distributions/lettera-${project.version}.exe"
     }
 }
