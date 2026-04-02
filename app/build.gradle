@@ -2,6 +2,7 @@ plugins
 {
     id 'java'
     id 'application'
+    id 'com.netflix.nebula.ospackage' version '12.3.0'
 }
 
 group = 'com.github.francitoshi'
@@ -105,3 +106,31 @@ task createDistribution(type: Copy)
 
 // Añadir la tarea a la fase de compilación
 build.dependsOn createDistribution
+
+ospackage 
+{
+    packageName = 'lettera'
+    version = project.version
+    release = '1'
+    arch = 'all'
+
+    summary = 'a chat app using gpg+email'
+    description = 'lettera app'
+    maintainer = 'francitoshi<francitoshi@gmail.com>'
+
+    // Dependencia de Java (funciona con cualquier JRE)
+    requires('default-jre-headless | java-runtime-headless')
+
+    // Instala toda la distribución generada por Gradle
+    into('/opt/lettera') 
+    {
+        from installDist.destinationDir
+    }
+
+    link('/usr/bin/lettera', '/opt/lettera/bin/lettera')
+}
+tasks.buildDeb 
+{
+    dependsOn installDist
+}
+//execute './gradlew clean buildDeb' to get debian package
