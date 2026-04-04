@@ -45,11 +45,11 @@ dependencies
     implementation "org.jline:jline-terminal:${jlineVersion}"
     implementation "org.jline:jline-reader:${jlineVersion}"
 
-    implementation 'com.sun.mail:jakarta.mail:2.0.1'
-    implementation 'com.h2database:h2:2.3.232'
+    implementation 'com.sun.mail:jakarta.mail:2.0.2'
+    implementation 'com.h2database:h2:2.4.240'
     implementation 'de.mkammerer:argon2-jvm:2.12'
     
-    implementation 'org.yaml:snakeyaml:2.2'
+    implementation 'org.yaml:snakeyaml:2.6'
 
     implementation "org.briarproject:tor-linux:0.4.8.22"
     implementation "org.briarproject:tor-macos:0.4.8.22"
@@ -60,7 +60,7 @@ dependencies
 
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     
-    testImplementation 'com.icegreen:greenmail-junit5:2.0.1'
+    testImplementation 'com.icegreen:greenmail-junit5:2.1.8'
     testImplementation 'org.slf4j:slf4j-jdk14:2.0.17'
 
     // This dependency is used by the application.
