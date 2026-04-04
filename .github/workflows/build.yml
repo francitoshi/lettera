@@ -1,8 +1,8 @@
 # ============================================================
 # GitHub Actions: Build & Release — lettera
 #
-# It runs automatically when you create a tag like v1.0.0
-# You can also launch it manually from the "Actions" tab
+# Compiles the JAR once on Linux, packages installers on 3
+# platforms in parallel, then publishes a GitHub Release.
 # ============================================================
 
 name: Build Installers
@@ -10,16 +10,48 @@ name: Build Installers
 on:
   push:
     tags:
-      - 'v*'          # It is triggered when doing: git tag v1.0.0 && git push --tags
-  workflow_dispatch:   # It allows you to launch it manually from GitHub UI
+      - 'v*'          # Triggered by: git tag v1.0.0 && git push --tags
+  workflow_dispatch:   # Allows manual launch from GitHub UI
+
+permissions:
+  contents: read       # Minimum global permissions
 
 jobs:
 
   # ──────────────────────────────────────────────────────────
-  # 1) LINUX — generates .deb, .rpm y .sh
-  #    It runs on an Ubuntu runner from GitHub
+  # 0) BUILD JAR — compile once (the JAR is cross-platform)
   # ──────────────────────────────────────────────────────────
-  build-linux:
+  build-jar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone the repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle (with cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build JAR
+        run: ./gradlew build
+
+      - name: Upload JAR distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: jar-distribution
+          path: app/build/distribution/
+          retention-days: 1
+
+  # ──────────────────────────────────────────────────────────
+  # 1) LINUX — generates .deb, .rpm, .sh, .snap
+  # ──────────────────────────────────────────────────────────
+  package-linux:
+    needs: build-jar
     runs-on: ubuntu-latest
 
     steps:
@@ -30,17 +62,17 @@ jobs:
         # Removes the initial 'v': v1.2.3 → 1.2.3
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
 
-      - name: Installs Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'   # Eclipse Temurin = Trusted OpenJDK 
+          distribution: 'temurin'
 
-      - name: Compile and build the JAR
-        run: ./gradlew build
-
-      # jpackage: Official Java tool for creating native installers
-      # Included in JDK 14+, no extra installation required
+      - name: Download JAR distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: jar-distribution
+          path: app/build/distribution
 
       - name: Create .deb installer (Debian/Ubuntu)
         run: |
@@ -57,9 +89,8 @@ jobs:
             --linux-shortcut \
             --resource-dir packaging
 
-      - name: Crear instalador .rpm (RedHat/Fedora/CentOS)
+      - name: Create .rpm installer (RedHat/Fedora/CentOS)
         run: |
-          # rpm-build es necesario para generar .rpm en Ubuntu
           sudo apt-get install -y rpm
           jpackage \
             --type rpm \
@@ -73,73 +104,66 @@ jobs:
             --vendor "francitoshi" \
             --resource-dir packaging
 
-      - name: Crear instalador .sh (script universal — cualquier Linux)
+      - name: Create .sh universal installer
         run: |
-          # Crea un script autocontenido que descomprime y ejecuta la app
           mkdir -p build/installers/linux
-          cat > build/installers/linux/instalar-lettera.sh << 'EOF'
+          cat > build/installers/linux/instalar-lettera.sh << EOF
           #!/bin/bash
-          # Instalador universal para Linux
-          INSTALL_DIR="$HOME/.local/share/lettera"
-          mkdir -p "$INSTALL_DIR"
-          cp lettera-${VERSION}.jar "$INSTALL_DIR/"
-          cat > "$HOME/.local/bin/lettera" << 'LAUNCHER'
+          # Universal installer for Linux
+          INSTALL_DIR="\$HOME/.local/share/lettera"
+          mkdir -p "\$INSTALL_DIR"
+          cp lettera-${VERSION}.jar "\$INSTALL_DIR/"
+          mkdir -p "\$HOME/.local/bin"
+          cat > "\$HOME/.local/bin/lettera" << 'LAUNCHER'
           #!/bin/bash
-          java -jar "$HOME/.local/share/lettera/lettera-${VERSION}.jar"
+          java -jar "\$HOME/.local/share/lettera/lettera-${VERSION}.jar"
           LAUNCHER
-          chmod +x "$HOME/.local/bin/lettera"
-          echo "✅ Instalado. Ejecuta: lettera"
+          chmod +x "\$HOME/.local/bin/lettera"
+          echo "✅ Installed. Run: lettera"
           EOF
           chmod +x build/installers/linux/instalar-lettera.sh
 
-      - name: Crear paquete Snap (Ubuntu Snap Store)
-        # snapcraft no está disponible via apt en GitHub Actions runners.
-        # La action oficial de Snapcore instala snapcraft correctamente
-        # y construye el .snap usando el fichero snap/snapcraft.yaml del repo.
+      - name: Build Snap package
         uses: snapcore/action-build@v1
         id: snap-build
-        continue-on-error: true   # Si falla, el resto del build continúa igualmente
+        continue-on-error: true
 
-      - name: Mover .snap a la carpeta de instaladores
+      - name: Move .snap to installers folder
         if: steps.snap-build.outcome == 'success'
         run: |
           mkdir -p build/installers/linux
           mv *.snap build/installers/linux/ 2>/dev/null || true
 
-      # Sube todos los instaladores como artefactos del workflow
-      # Los encontrarás en la pestaña Actions → tu ejecución → Artifacts
-      - name: Upload artifacts Linux
+      - name: Upload Linux installers
         uses: actions/upload-artifact@v4
         with:
           name: installers-linux
           path: build/installers/linux/
 
   # ──────────────────────────────────────────────────────────
-  # 2) MACOS — genera .dmg y .pkg
-  #    Se ejecuta en un runner macOS de GitHub
+  # 2) MACOS — generates .dmg and .pkg
   # ──────────────────────────────────────────────────────────
-  build-mac:
+  package-mac:
+    needs: build-jar
     runs-on: macos-latest
 
     steps:
-      - name: Clonar el repositorio
-        uses: actions/checkout@v4
-
-
-      - name: Extraer versión del tag
-        # Removes the initial 'v': v1.2.3 → 1.2.3
+      - name: Extract tag version
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
 
-      - name: Instalar Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Compilar y construir el JAR
-        run: ./gradlew build
+      - name: Download JAR distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: jar-distribution
+          path: app/build/distribution
 
-      - name: Crear instalador .dmg (imagen de disco — el más común en Mac)
+      - name: Create .dmg installer
         run: |
           jpackage \
             --type dmg \
@@ -153,7 +177,7 @@ jobs:
             --vendor "francitoshi" \
             --mac-package-name "lettera"
 
-      - name: Crear instalador .pkg (paquete macOS — para distribución empresarial)
+      - name: Create .pkg installer
         run: |
           jpackage \
             --type pkg \
@@ -166,51 +190,49 @@ jobs:
             --description "a gpg+email chat app" \
             --vendor "francitoshi"
 
-      - name: Upload artifacts Mac
+      - name: Upload Mac installers
         uses: actions/upload-artifact@v4
         with:
           name: installers-mac
           path: build/installers/mac/
 
   # ──────────────────────────────────────────────────────────
-  # 3) WINDOWS — Generates .exe and .msi
-  #    It runs on a GitHub Windows runner
+  # 3) WINDOWS — generates .exe and .msi
   # ──────────────────────────────────────────────────────────
-  build-windows:
+  package-windows:
+    needs: build-jar
     runs-on: windows-latest
 
     steps:
-      - name: Clonar el repositorio
-        uses: actions/checkout@v4
-
-      - name: Extraer versión del tag
-        # Removes the initial 'v': v1.2.3 → 1.2.3
+      - name: Extract tag version
         run: echo "VERSION=$($env:GITHUB_REF_NAME.Substring(1))" >> $env:GITHUB_ENV
 
-      - name: Instalar Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Compilar y construir el JAR
-        run: .\gradlew.bat build
+      - name: Download JAR distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: jar-distribution
+          path: app\build\distribution
 
-      - name: Instalar WiX Toolset (necesario para crear .msi)
+      - name: Install WiX Toolset (required for .msi)
         run: |
-          # WiX es el estándar para crear instaladores .msi en Windows
           choco install wixtoolset -y
           echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" >> $env:GITHUB_PATH
 
-      - name: Crear instalador .exe (ejecutable de instalación)
+      - name: Create .exe installer
         run: |
-          jpackage --type exe --name lettera --app-version ${{env.VERSION}} --input app\build\distribution --main-jar lettera-${{env.VERSION}}.jar --main-class com.ejemplo.lettera.Main --dest build\installers\windows --description "a gpg+email chat app" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
+          jpackage --type exe --name lettera --app-version ${{env.VERSION}} --input app\build\distribution --main-jar lettera-${{env.VERSION}}.jar --main-class io.francitoshi.lettera.Main --dest build\installers\windows --description "a gpg+email chat app" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
 
-      - name: Crear instalador .msi (Windows Installer — para empresas/GPO)
+      - name: Create .msi installer
         run: |
-          jpackage --type msi --name lettera --app-version ${{env.VERSION}} --input app\build\distribution --main-jar lettera-${{env.VERSION}}.jar --main-class com.ejemplo.lettera.Main --dest build\installers\windows --description "a gpg+email chat app" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
+          jpackage --type msi --name lettera --app-version ${{env.VERSION}} --input app\build\distribution --main-jar lettera-${{env.VERSION}}.jar --main-class io.francitoshi.lettera.Main --dest build\installers\windows --description "a gpg+email chat app" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
 
-      - name: Upload artifacts Windows
+      - name: Upload Windows installers
         uses: actions/upload-artifact@v4
         with:
           name: installers-windows
@@ -218,54 +240,39 @@ jobs:
 
   # ──────────────────────────────────────────────────────────
   # 4) RELEASE — Publish all installers on GitHub Releases
-  #    It only runs when you push a tag (v*)
   # ──────────────────────────────────────────────────────────
   release:
-    needs: [build-linux, build-mac, build-windows]  # Wait for all 3 builds to finish
+    needs: [package-linux, package-mac, package-windows]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')         # Only in tags, not in PRs
+    if: startsWith(github.ref, 'refs/tags/')
     permissions:
-      contents: write   # Required to create releases and upload files
+      contents: write
 
     steps:
-      - name: Download artifacts Linux
+      - name: Download all installers
         uses: actions/download-artifact@v4
         with:
-          name: installers-linux
-          path: release/linux
+          pattern: installers-*
+          path: release
 
-      - name: Download artifacts Mac
-        uses: actions/download-artifact@v4
-        with:
-          name: installers-mac
-          path: release/mac
-
-      - name: Download artifacts Windows
-        uses: actions/download-artifact@v4
-        with:
-          name: installers-windows
-          path: release/windows
-
-      - name: Crear GitHub Release y subir instaladores
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           name: "lettera ${{github.ref_name}}"
           body: |
             ## 🚀 Release ${{github.ref_name}}
 
-            ### Descarga tu instalador:
-            | Plataforma | Formato | Descripción |
-            |------------|---------|-------------|
-            | 🐧 Linux   | `.deb`  | Debian, Ubuntu, Mint |
-            | 🐧 Linux   | `.rpm`  | Fedora, CentOS, RHEL |
-            | 🐧 Linux   | `.sh`   | Cualquier distribución Linux |
-            | 🍎 macOS   | `.dmg`  | Instalación visual arrastrando |
-            | 🍎 macOS   | `.pkg`  | Instalación silenciosa/empresarial |
-            | 🪟 Windows | `.exe`  | Instalador con asistente |
-            | 🪟 Windows | `.msi`  | Instalación empresarial/GPO |
+            ### Download your installer:
+            | Platform   | Format  | Description                        |
+            |------------|---------|------------------------------------|
+            | 🐧 Linux   | `.deb`  | Debian, Ubuntu, Mint               |
+            | 🐧 Linux   | `.rpm`  | Fedora, CentOS, RHEL               |
+            | 🐧 Linux   | `.sh`   | Any Linux distribution             |
+            | 🍎 macOS   | `.dmg`  | Drag-and-drop visual installation  |
+            | 🍎 macOS   | `.pkg`  | Silent/enterprise installation     |
+            | 🪟 Windows | `.exe`  | Installation wizard                |
+            | 🪟 Windows | `.msi`  | Enterprise/GPO installation        |
           files: |
-            release/linux/*
-            release/mac/*
-            release/windows/*
+            release/**/*
         env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}  # Token automático de GitHub, no necesitas configurar nada
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
