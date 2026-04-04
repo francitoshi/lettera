@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Extract tag version
-        # Remove the initial 'v': v1.2.3 → 1.2.3
+        # Removes the initial 'v': v1.2.3 → 1.2.3
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
 
       - name: Installs Java 17
@@ -48,12 +48,12 @@ jobs:
             --type deb \
             --name lettera \
             --app-version ${{env.VERSION}} \
-            --input build/libs \
+            --input app/build/libs \
             --main-jar lettera-${{env.VERSION}}.jar \
             --main-class io.francitoshi.lettera.Main \
             --dest build/installers/linux \
-            --description "a chat app using gpg+email" \
-            --vendor "Mi Empresa" \
+            --description "a gpg+email chat app" \
+            --vendor "francitoshi" \
             --linux-shortcut \
             --resource-dir packaging
 
@@ -65,12 +65,12 @@ jobs:
             --type rpm \
             --name lettera \
             --app-version ${{env.VERSION}} \
-            --input build/libs \
+            --input app/build/libs \
             --main-jar lettera-${{env.VERSION}}.jar \
             --main-class io.francitoshi.lettera.Main \
             --dest build/installers/linux \
-            --description "a chat app using gpg+email" \
-            --vendor "Mi Empresa" \
+            --description "a gpg+email chat app" \
+            --vendor "francitoshi" \
             --resource-dir packaging
 
       - name: Crear instalador .sh (script universal — cualquier Linux)
@@ -108,10 +108,10 @@ jobs:
 
       # Sube todos los instaladores como artefactos del workflow
       # Los encontrarás en la pestaña Actions → tu ejecución → Artifacts
-      - name: Subir artefactos Linux
+      - name: Upload artifacts Linux
         uses: actions/upload-artifact@v4
         with:
-          name: instaladores-linux
+          name: installers-linux
           path: build/installers/linux/
 
   # ──────────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ jobs:
 
 
       - name: Extraer versión del tag
-        # Elimina la 'v' inicial: v1.2.3 → 1.2.3
+        # Removes the initial 'v': v1.2.3 → 1.2.3
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
 
       - name: Instalar Java 17
@@ -145,11 +145,11 @@ jobs:
             --type dmg \
             --name lettera \
             --app-version ${{env.VERSION}} \
-            --input build/libs \
+            --input app/build/libs \
             --main-jar lettera-${{env.VERSION}}.jar \
             --main-class io.francitoshi.lettera.Main \
             --dest build/installers/mac \
-            --description "a chat app using gpg+email" \
+            --description "a gpg+email chat app" \
             --vendor "francitoshi" \
             --mac-package-name "lettera"
 
@@ -159,22 +159,22 @@ jobs:
             --type pkg \
             --name lettera \
             --app-version ${{env.VERSION}} \
-            --input build/libs \
+            --input app/build/libs \
             --main-jar lettera-${{env.VERSION}}.jar \
             --main-class io.francitoshi.lettera.Main \
             --dest build/installers/mac \
-            --description "a chat app using gpg+email" \
-            --vendor "Mi Empresa"
+            --description "a gpg+email chat app" \
+            --vendor "francitoshi"
 
-      - name: Subir artefactos Mac
+      - name: Upload artifacts Mac
         uses: actions/upload-artifact@v4
         with:
-          name: instaladores-mac
+          name: installers-mac
           path: build/installers/mac/
 
   # ──────────────────────────────────────────────────────────
-  # 3) WINDOWS — genera .exe y .msi
-  #    Se ejecuta en un runner Windows de GitHub
+  # 3) WINDOWS — Generates .exe and .msi
+  #    It runs on a GitHub Windows runner
   # ──────────────────────────────────────────────────────────
   build-windows:
     runs-on: windows-latest
@@ -184,7 +184,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Extraer versión del tag
-        # Elimina la 'v' inicial: v1.2.3 → 1.2.3
+        # Removes the initial 'v': v1.2.3 → 1.2.3
         run: echo "VERSION=$($env:GITHUB_REF_NAME.Substring(1))" >> $env:GITHUB_ENV
 
       - name: Instalar Java 17
@@ -204,46 +204,46 @@ jobs:
 
       - name: Crear instalador .exe (ejecutable de instalación)
         run: |
-          jpackage --type exe --name lettera --app-version ${{env.VERSION}} --input build\libs --main-jar lettera-${{env.VERSION}}.jar --main-class com.ejemplo.lettera.Main --dest build\installers\windows --description "a chat app using gpg+email" --vendor "Mi Empresa" --win-shortcut --win-menu --win-menu-group "Mi Empresa"
+          jpackage --type exe --name lettera --app-version ${{env.VERSION}} --input build\libs --main-jar lettera-${{env.VERSION}}.jar --main-class com.ejemplo.lettera.Main --dest build\installers\windows --description "a gpg+email chat app" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
 
       - name: Crear instalador .msi (Windows Installer — para empresas/GPO)
         run: |
-          jpackage --type msi --name lettera --app-version ${{env.VERSION}} --input build\libs --main-jar lettera-${{env.VERSION}}.jar --main-class com.ejemplo.lettera.Main --dest build\installers\windows --description "a chat app using gpg+email" --vendor "Mi Empresa" --win-shortcut --win-menu --win-menu-group "Mi Empresa"
+          jpackage --type msi --name lettera --app-version ${{env.VERSION}} --input build\libs --main-jar lettera-${{env.VERSION}}.jar --main-class com.ejemplo.lettera.Main --dest build\installers\windows --description "a gpg+email chat app" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
 
-      - name: Subir artefactos Windows
+      - name: Upload artifacts Windows
         uses: actions/upload-artifact@v4
         with:
-          name: instaladores-windows
+          name: installers-windows
           path: build\installers\windows\
 
   # ──────────────────────────────────────────────────────────
-  # 4) RELEASE — publica todos los instaladores en GitHub Releases
-  #    Solo se ejecuta cuando haces push de un tag (v*)
+  # 4) RELEASE — Publish all installers on GitHub Releases
+  #    It only runs when you push a tag (v*)
   # ──────────────────────────────────────────────────────────
   release:
-    needs: [build-linux, build-mac, build-windows]  # Espera a que los 3 builds terminen
+    needs: [build-linux, build-mac, build-windows]  # Wait for all 3 builds to finish
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')         # Solo en tags, no en PRs
+    if: startsWith(github.ref, 'refs/tags/')         # Only in tags, not in PRs
     permissions:
-      contents: write   # Necesario para crear releases y subir ficheros
+      contents: write   # Required to create releases and upload files
 
     steps:
-      - name: Descargar artefactos Linux
+      - name: Download artifacts Linux
         uses: actions/download-artifact@v4
         with:
-          name: instaladores-linux
+          name: installers-linux
           path: release/linux
 
-      - name: Descargar artefactos Mac
+      - name: Download artifacts Mac
         uses: actions/download-artifact@v4
         with:
-          name: instaladores-mac
+          name: installers-mac
           path: release/mac
 
-      - name: Descargar artefactos Windows
+      - name: Download artifacts Windows
         uses: actions/download-artifact@v4
         with:
-          name: instaladores-windows
+          name: installers-windows
           path: release/windows
 
       - name: Crear GitHub Release y subir instaladores
