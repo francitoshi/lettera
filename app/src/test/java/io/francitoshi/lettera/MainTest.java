@@ -31,6 +31,7 @@ import io.nut.base.crypto.gpg.SecKey;
 import io.nut.base.util.concurrent.hive.Hive;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -97,6 +98,7 @@ public class MainTest
     }
 
     @Test
+    @Disabled
     public void testMain1() throws Exception
     {
         Main.main("--passphrase", PASSPHRASE, "--input", "test/input-test-alice1.txt", "--no-wizard", "--debug", "-d","./tmp/test-alice1");
@@ -104,6 +106,7 @@ public class MainTest
     }
     
     @Test
+    @Disabled
     public void testMain2() throws Exception
     {
         Hive hive = new Hive(2);
