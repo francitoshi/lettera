@@ -48,7 +48,7 @@ jobs:
             --type deb \
             --name lettera \
             --app-version ${{env.VERSION}} \
-            --input app/build/libs \
+            --input app/build/distribution \
             --main-jar lettera-${{env.VERSION}}.jar \
             --main-class io.francitoshi.lettera.Main \
             --dest build/installers/linux \
@@ -65,7 +65,7 @@ jobs:
             --type rpm \
             --name lettera \
             --app-version ${{env.VERSION}} \
-            --input app/build/libs \
+            --input app/build/distribution \
             --main-jar lettera-${{env.VERSION}}.jar \
             --main-class io.francitoshi.lettera.Main \
             --dest build/installers/linux \
@@ -145,7 +145,7 @@ jobs:
             --type dmg \
             --name lettera \
             --app-version ${{env.VERSION}} \
-            --input app/build/libs \
+            --input app/build/distribution \
             --main-jar lettera-${{env.VERSION}}.jar \
             --main-class io.francitoshi.lettera.Main \
             --dest build/installers/mac \
@@ -159,7 +159,7 @@ jobs:
             --type pkg \
             --name lettera \
             --app-version ${{env.VERSION}} \
-            --input app/build/libs \
+            --input app/build/distribution \
             --main-jar lettera-${{env.VERSION}}.jar \
             --main-class io.francitoshi.lettera.Main \
             --dest build/installers/mac \
@@ -204,11 +204,11 @@ jobs:
 
       - name: Crear instalador .exe (ejecutable de instalación)
         run: |
-          jpackage --type exe --name lettera --app-version ${{env.VERSION}} --input app/build\libs --main-jar lettera-${{env.VERSION}}.jar --main-class com.ejemplo.lettera.Main --dest build\installers\windows --description "a gpg+email chat app" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
+          jpackage --type exe --name lettera --app-version ${{env.VERSION}} --input app\build\distribution --main-jar lettera-${{env.VERSION}}.jar --main-class com.ejemplo.lettera.Main --dest build\installers\windows --description "a gpg+email chat app" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
 
       - name: Crear instalador .msi (Windows Installer — para empresas/GPO)
         run: |
-          jpackage --type msi --name lettera --app-version ${{env.VERSION}} --input app/build\libs --main-jar lettera-${{env.VERSION}}.jar --main-class com.ejemplo.lettera.Main --dest build\installers\windows --description "a gpg+email chat app" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
+          jpackage --type msi --name lettera --app-version ${{env.VERSION}} --input app\build\distribution --main-jar lettera-${{env.VERSION}}.jar --main-class com.ejemplo.lettera.Main --dest build\installers\windows --description "a gpg+email chat app" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
 
       - name: Upload artifacts Windows
         uses: actions/upload-artifact@v4
