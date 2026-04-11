@@ -130,6 +130,7 @@ public class TerminalChat extends Lettera
     private static final String _ABOUT = "/about";
     private static final String _SETUP_ACCOUNT = "/setup-account";
     private static final String _SETUP_FRIEND = "/setup-friend";
+    private static final String _SETUP_WIZARD = "/setup-wizard";
     private static final String _IMPORT_ACCOUNTS = "/import-accounts";
     private static final String _IMPORT_FRIENDS = "/import-friends";
     private static final String _LIST_ACCOUNTS = "/list-accounts";
@@ -137,7 +138,6 @@ public class TerminalChat extends Lettera
     private static final String _LIST_CHATS = "/list-chats";
     private static final String _CHAT = "/chat";
     private static final String _UNREAD = "/unread";
-    private static final String _WIZARD = "/wizard";
     private static final String _WAIT_MESSAGE = "/wait-message";
     private static final String _PASSPHRASE = "/passphrase";
     private static final String _EXIT = "/exit";
@@ -197,6 +197,12 @@ public class TerminalChat extends Lettera
                     else if (line.startsWith(_IMPORT_ACCOUNTS))
                     {
                         importAccounts();
+                    }
+                    else if (line.startsWith(_SETUP_WIZARD))
+                    {
+                        boolean wa = countAccounts()==0 && countSecKeys()>0;
+                        boolean wf = countFriends()==0 && countPubKeys()>0;
+                        wizardSetup(wa, wf);
                     }
                     else if (line.startsWith(_IMPORT_FRIENDS))
                     {
@@ -357,6 +363,7 @@ public class TerminalChat extends Lettera
         
         list.add(_SETUP_ACCOUNT);
         list.add(_SETUP_FRIEND);
+        list.add(_SETUP_WIZARD);
 //        list.add(node((Object[]) secEmails));
         
 //        for(String from : secEmails)
@@ -381,8 +388,6 @@ public class TerminalChat extends Lettera
         }
 
         list.add(_UNREAD);
-
-        list.add(_WIZARD);
         list.add(_WAIT_MESSAGE);
         
         list.add(_EXIT);
@@ -957,7 +962,6 @@ public class TerminalChat extends Lettera
         }
         return sb.append(sj).toString();
     }
-    
         
     private void printMessage(Message message, char[] gpgPass)
     {
@@ -1017,7 +1021,6 @@ public class TerminalChat extends Lettera
             System.getLogger(TerminalChat.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
     }
-
 
     private char[] readPasswordOrPass(String prompt)
     {

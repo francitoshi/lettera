@@ -2,7 +2,6 @@ plugins
 {
     id 'java'
     id 'application'
-    id 'com.netflix.nebula.ospackage' version '12.3.0'
 }
 
 group = 'com.github.francitoshi'
@@ -14,7 +13,7 @@ repositories
     maven { url 'https://jitpack.io' }
 }
 
-def nutVersion = '0.1.63'
+def nutVersion = '0.1.64'
 def bouncycastleVersion = '1.83'
 def jlineVersion = '3.29.0'
 def briarproject = '0.4.8.22'
@@ -40,7 +39,7 @@ dependencies
 
     implementation "org.bouncycastle:bcprov-jdk18on:${bouncycastleVersion}"
     implementation "org.bouncycastle:bcpkix-jdk18on:${bouncycastleVersion}"
-    
+
     implementation "org.jline:jline:${jlineVersion}"
     implementation "org.jline:jline-terminal:${jlineVersion}"
     implementation "org.jline:jline-reader:${jlineVersion}"
@@ -48,7 +47,7 @@ dependencies
     implementation 'com.sun.mail:jakarta.mail:2.0.2'
     implementation 'com.h2database:h2:2.4.240'
     implementation 'de.mkammerer:argon2-jvm:2.12'
-    
+
     implementation 'org.yaml:snakeyaml:2.6'
 
     implementation "org.briarproject:tor-linux:0.4.8.22"
@@ -59,7 +58,7 @@ dependencies
     testImplementation libs.junit.jupiter
 
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    
+
     testImplementation 'com.icegreen:greenmail-junit5:2.1.8'
     testImplementation 'org.slf4j:slf4j-jdk14:2.0.17'
 
@@ -80,16 +79,16 @@ application
     mainClass = 'io.francitoshi.lettera.Main'
     applicationName = 'lettera'
 }
-jar 
+
+jar
 {
     archiveFileName = "lettera-${version}.jar"
-    manifest 
+    manifest
     {
         attributes 'Main-Class': 'io.francitoshi.lettera.Main'
-        attributes 'Implementation-Version': project.version
         attributes 'Implementation-Title': project.name
         attributes 'Implementation-Version': project.version
-        attributes 'Implementation-Vendor': 'francitoshi@gmail.com'        
+        attributes 'Implementation-Vendor': 'francitoshi@gmail.com'
     }
 }
 
@@ -98,82 +97,155 @@ tasks.named('test')
     useJUnitPlatform()
 }
 
-task createDistribution(type: Copy) 
+task createDistribution(type: Copy)
 {
     from jar
     from configurations.runtimeClasspath
-    into "${buildDir}/distribution"
+    into layout.buildDirectory.dir("distribution")
 }
 
-// Añadir la tarea a la fase de compilación
 build.dependsOn createDistribution
 
-ospackage 
-{
-    packageName = 'lettera'
-    version = project.version
-    release = '1'
-    arch = 'all'
+// ============================================================
+// LOCAL PACKAGING WITH JPACKAGE
+// tasks: linux-release, windows-release, mac-release
+// ============================================================
 
-    summary = 'a chat app using gpg+email'
-    description = 'lettera app'
-    maintainer = 'francitoshi<francitoshi@gmail.com>'
+// Captured at configuration time for compatibility with configuration cache
+def buildOutputDir = layout.buildDirectory.get().asFile
 
-    // Dependencia de Java (funciona con cualquier JRE)
-    requires('default-jre-headless | java-runtime-headless')
+def javaHome = System.getenv('JAVA_HOME') ?:
+    javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(17)
+    }.get().metadata.installationPath.asFile.absolutePath
 
-    // Instala toda la distribución generada por Gradle
-    into('/opt/lettera') 
-    {
-        from installDist.destinationDir
-    }
+def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
 
-    link('/usr/bin/lettera', '/opt/lettera/bin/lettera')
+def jpackageExe = "${javaHome}${File.separator}bin${File.separator}jpackage${isWindows ? '.exe' : ''}"
+
+def jpackageBaseArgs = [
+    '--input',       "${buildOutputDir}/distribution",
+    '--name',        'lettera',
+    '--app-version', project.version,
+    '--main-jar',    "lettera-${project.version}.jar",
+    '--main-class',  'io.francitoshi.lettera.Main',
+    '--description', 'a gpg+email chat app',
+    '--vendor',      'francitoshi',
+]
+
+// ── LINUX: generates .deb and .rpm ────────────────────────────────
+
+task('linux-release-deb', type: Exec) {
+    dependsOn createDistribution
+    group = 'release'
+    description = 'Generate a .deb installer for Linux using jpackage'
+
+    def destDir = "${buildOutputDir}/installers/linux"
+    doFirst { new File(destDir).mkdirs() }
+
+    commandLine jpackageExe,
+        *jpackageBaseArgs,
+        '--type',           'deb',
+        '--dest',           destDir,
+        '--linux-shortcut',
+        '--resource-dir',   '../packaging'
 }
-tasks.buildDeb 
-{
-    dependsOn installDist
+
+task('linux-release-rpm', type: Exec) {
+    dependsOn 'linux-release-deb'
+    group = 'release'
+    description = Generate .rpm installer for Linux with jpackage'
+
+    def destDir = "${buildOutputDir}/installers/linux"
+
+    commandLine jpackageExe,
+        *jpackageBaseArgs,
+        '--type',           'rpm',
+        '--dest',           destDir,
+        '--resource-dir',   '../packaging'
 }
-//execute './gradlew clean buildDeb' to get debian package
-//execute 'sudo apt install $(find -iname "*.deb")' to install the debian package
 
+task('linux-release') {
+    dependsOn 'linux-release-deb', 'linux-release-rpm'
+    group = 'release'
+    description = 'Generates .deb and .rpm installers for Linux with jpackage'
+}
 
-// ==================== INSTALADOR WINDOWS (jpackage + jlink) - Multi-módulo (:app) ====================
-tasks.register('createWindowsInstaller', Exec) 
-{
-    dependsOn ':app:installDist'
-    group = 'distribution'
-    description = 'Crea instalador .exe para Windows con jpackage (self-contained)'
+// ── WINDOWS: Generates .exe and .msi ──────────────────────────────
 
-    def appProject = project(':app')
-    def installDir = appProject.installDist.destinationDir
-    def jarName   = "lettera-${project.version}.jar"   // nombre del JAR dentro de lib/
+task('windows-release-exe', type: Exec) {
+    dependsOn createDistribution
+    group = 'release'
+    description = 'Generate .exe installer for Windows with jpackage'
 
-    def javaHome = System.getenv('JAVA_HOME') ?:
-        javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
-            .get().metadata.installationPath.asFile.absolutePath
+    def destDir = "${buildOutputDir}/installers/windows"
+    doFirst { new File(destDir).mkdirs() }
 
-    def jpackage = "${javaHome}\\bin\\jpackage.exe"
+    commandLine jpackageExe,
+        *jpackageBaseArgs,
+        '--type',            'exe',
+        '--dest',            destDir,
+        '--win-shortcut',
+        '--win-menu',
+        '--win-menu-group',  'francitoshi',
+        '--win-console'
+}
 
-    commandLine jpackage,
-            '--input', installDir.absolutePath,
-            '--name', 'lettera',
-            '--main-class', 'Main',
-            '--main-jar', "lib/${jarName}",   // ← clave: el JAR está dentro de la carpeta lib/
-            '--type', 'exe',
-            '--dest', 'build/distributions',
-            '--app-version', project.version,
-            '--vendor', 'francitoshi',
-            '--description', 'Aplicación Lettera',
-            '--win-console',
-            '--win-dir-chooser',
-            '--win-shortcut',
-            '--win-menu',
-            '--win-menu-group', 'lettera',
-            '--verbose'
+task('windows-release-msi', type: Exec) {
+    dependsOn 'windows-release-exe'
+    group = 'release'
+    description = 'Genera instalador .msi para Windows con jpackage'
 
-    doLast 
-    {
-        println "✅ Instalador Windows creado: build/distributions/lettera-${project.version}.exe"
-    }
+    def destDir = "${buildOutputDir}/installers/windows"
+
+    commandLine jpackageExe,
+        *jpackageBaseArgs,
+        '--type',            'msi',
+        '--dest',            destDir,
+        '--win-shortcut',
+        '--win-menu',
+        '--win-menu-group',  'francitoshi',
+        '--win-console'
+}
+
+task('windows-release') {
+    dependsOn 'windows-release-exe', 'windows-release-msi'
+    group = 'release'
+    description = 'Generate .exe and .msi installers for Windows with jpackage'
+}
+
+// ── MAC: generate .dmg y .pkg ──────────────────────────────────
+
+task('mac-release-dmg', type: Exec) {
+    dependsOn createDistribution
+    group = 'release'
+    description = 'Generate a .dmg installer for macOS using jpackage'
+
+    def destDir = "${buildOutputDir}/installers/mac"
+    doFirst { new File(destDir).mkdirs() }
+
+    commandLine jpackageExe,
+        *jpackageBaseArgs,
+        '--type',             'dmg',
+        '--dest',             destDir,
+        '--mac-package-name', 'lettera'
+}
+
+task('mac-release-pkg', type: Exec) {
+    dependsOn 'mac-release-dmg'
+    group = 'release'
+    description = 'Generate a .pkg installer for macOS using jpackage'
+
+    def destDir = "${buildOutputDir}/installers/mac"
+
+    commandLine jpackageExe,
+        *jpackageBaseArgs,
+        '--type',             'pkg',
+        '--dest',             destDir
+}
+
+task('mac-release') {
+    dependsOn 'mac-release-dmg', 'mac-release-pkg'
+    group = 'release'
+    description = 'Generate .dmg and .pkg installers for macOS with jpackage'
 }

@@ -2,6 +2,7 @@
 /setup-account  : crear/editar/borrar cuenta
 /setup-friend   : crear/editar/borrar amigo
 /setup-chat     : crear/editar/borrar chat
+/setup-wizard	: ejecutar el asistente de configuración
 /list-accounts  : listar cuentas
 /list-friends   : listar amigos
 /list-chats     : listar chats
