@@ -25,6 +25,7 @@ import static io.francitoshi.lettera.Lettera.LOOP_MILLIS;
 import io.nut.base.crypto.gpg.GPG;
 import io.nut.base.security.SecureChars;
 import io.nut.base.util.Utils;
+import io.nut.base.util.concurrent.hive.Bee;
 import io.nut.core.net.mail.IMAP;
 import io.nut.core.net.mail.MailReader;
 import io.nut.core.net.mail.SMTP;
@@ -39,7 +40,7 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class MailGetBot implements Runnable
+public class MailPoll implements Runnable
 {
     private static final GPG GPG = Lettera.GPG;
     
@@ -51,17 +52,18 @@ public class MailGetBot implements Runnable
 //666    private final Map<Long, Note> currentNotes;
     private final SecureChars secureEmailPass;
     
-    private final BlockingQueue<Note> queue = new LinkedBlockingQueue<>(8);
+    private final Bee<Note> hub;
     private final Object lock = new Object();
     private volatile int waitMillis = 0;
 
-    public MailGetBot(Chat currentChat, Account currentAccount, Friend currentFriend, KeyWrapper keyWrapper, SecureChars secureEmailPass)
+    public MailPoll(Chat currentChat, Account currentAccount, Friend currentFriend, KeyWrapper keyWrapper, SecureChars secureEmailPass, Bee<Note> hub)
     {
         this.currentChat = currentChat;
         this.currentAccount = currentAccount;
         this.currentFriend = currentFriend;
         this.keyWrapper = keyWrapper;
         this.secureEmailPass = secureEmailPass;
+        this.hub = hub;
     }    
     
     @Override
@@ -87,7 +89,8 @@ public class MailGetBot implements Runnable
                     if (isCurrentChatSession(item))
                     {
                         char[] gpgPass = keyWrapper.unwrapKey(GPG_PURPOSE, currentChat.accountName, currentAccount.gpgPass);
-//666                            printMessage(item, gpgPass);
+                        //666 hub.send(item, gpgPass);
+                        //666 hub.send(note);
                         Arrays.fill(gpgPass, '\0');
                         Toolkit.getDefaultToolkit().beep();
                     }
@@ -126,7 +129,7 @@ public class MailGetBot implements Runnable
         }
         return false;
     }
-    public MailGetBot start()
+    public MailPoll start()
     {
         Thread th = new Thread(this, "MailGetBot");
         th.setDaemon(true);

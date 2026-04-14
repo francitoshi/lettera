@@ -36,6 +36,7 @@ import io.nut.base.encoding.Base64DecoderException;
 import io.nut.base.security.SecureChars;
 import io.nut.base.text.Table;
 import io.nut.base.util.concurrent.hive.Bee;
+import io.nut.base.util.concurrent.hive.Hive;
 import jakarta.mail.MessagingException;
 import java.io.File;
 import java.io.IOException;
@@ -50,7 +51,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.jline.utils.AttributedString;
 
-public class Lettera implements AutoCloseable
+public class Lettera extends Bee<Note> implements AutoCloseable
 {
     public static final String GPG_PURPOSE = "gpg";
     public static final Charset UTF8 = StandardCharsets.UTF_8;
@@ -103,9 +104,12 @@ public class Lettera implements AutoCloseable
     private volatile Map<Long, Note> currentNotes;
 
     private volatile Mode mode = Mode.ReadWrite;
-    private volatile MailPutBot mailPutBot;
-    volatile MailGetBot mailGetBot;
+    private volatile MailPush mailPush;
+    private volatile MailPoll mailPoll;
+    volatile SessionHub sessionHub;
 
+    final Hive hive = new Hive(Hive.CORES, Hive.CORES, Hive.CORES, 30_000);
+    
     public Lettera(PrintStream out, File configFile, File keystoreFile, File letteraDb, SecureChars passphrase, boolean mock, boolean debug)
     {
         this.out = out;
@@ -204,15 +208,15 @@ public class Lettera implements AutoCloseable
 //666        mailReader = new IMAP(currentAccount.imapHost, currentAccount.imapPort, currentAccount.auth, currentAccount.starttls, false, currentAccount.username, secureEmailPass);
 //666        smtp = new SMTP(currentAccount.smtpHost, currentAccount.smtpPort, currentAccount.auth, currentAccount.starttls, currentAccount.username, secureEmailPass, currentAccount.address);
 
-        this.mailGetBot = mode.read ? new MailGetBot(currentChat, currentAccount, currentFriend, keyWrapper, secureEmailPass).start() : null;
-        this.mailPutBot = mode.write? new MailPutBot(currentChat, currentAccount, currentFriend, keyWrapper, secureEmailPass).start() : null;
+        this.mailPoll = mode.read ? new MailPoll(currentChat, currentAccount, currentFriend, keyWrapper, secureEmailPass, this).start() : null;
+        this.mailPush = mode.write? new MailPush(currentChat, currentAccount, currentFriend, keyWrapper, secureEmailPass, this) : null;
 
         return chat.accountName;
     }
     
     public void send(String text) throws MessagingException, InterruptedException, IOException
     {
-        this.mailPutBot.sendNote(text);
+        this.mailPush.sendNote(text);
     }
         
     public static String stripAnsi(String input)
@@ -302,34 +306,22 @@ public class Lettera implements AutoCloseable
     @Override
     public void close() throws Exception
     {
-        if(mailGetBot!=null)
+        if(mailPoll!=null)
         {
-            mailGetBot.close();
-            mailGetBot = null;
+            mailPoll.close();
+            mailPoll = null;
         }
-        if(mailPutBot!=null)
+        if(mailPush!=null)
         {
-            mailPutBot.close();
-            mailPutBot = null;
+            mailPush.close();
+            mailPush = null;
         }
         db.close();
     }
 
-    final Bee<Note> storeBee = new Bee<Note>()
+    @Override
+    protected void receive(Note m)
     {
-        @Override
-        protected void receive(Note m)
-        {
-            printBee.send(m);
-        }
-    };
-    final Bee<Note> printBee = new Bee<Note>()
-    {
-        @Override
-        protected void receive(Note m)
-        {
-            System.out.println(m.text);
-        }
-    };
-    
+        //do nothing
+    }
 }

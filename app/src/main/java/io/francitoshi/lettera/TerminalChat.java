@@ -96,7 +96,6 @@ public class TerminalChat extends Lettera
         HELP = ResourceBundles.getResourceAsString(TerminalChat.class, helpFileName, "help");
     }
 
-//    final Hive hive = new Hive(Hive.CORES, Hive.CORES, Hive.CORES, 30_000);
 //    final Bee<Note> chatBee; 
 //    final Bee<Integer> imapBee; 
 //    final Bee<Note> smtpBee; 
@@ -111,7 +110,6 @@ public class TerminalChat extends Lettera
     private volatile boolean wizard;
     
     private volatile boolean chatActive;
-    private final BlockingQueue<Note> chatQueue = new LinkedBlockingQueue<>(8);
     private final Object lock = new Object();
     
         
@@ -153,7 +151,7 @@ public class TerminalChat extends Lettera
     
     void run() throws IOException, InterruptedException, Base64DecoderException, NoSuchAlgorithmException, CertificateException, KeyStoreException, Exception
     {
-        Hive hive = new Hive(8).add(storeBee, printBee);
+        //.add(storeBee, printBee);
         reader = buildLineReader(getCommandsCompleter());
 
         try
@@ -262,9 +260,9 @@ public class TerminalChat extends Lettera
                 }
                 else if(currentChat!=null)
                 {
-                    Note note = new Note(JavaTime.epochSecond(), currentChat.id, currentChat.accountAddress, currentChat.friendAddress, currentChat.accountKeyid, currentChat.friendKeyid, 0, 0, line);
-                    chatQueue.add(note);
-                    mailGetBot.sync();
+                    long id = Note.NONCE.get();
+                    Note note = new Note(id, JavaTime.epochSecond(), currentChat.id, currentChat.accountAddress, currentChat.friendAddress, currentChat.accountKeyid, currentChat.friendKeyid, 0, 0, line);
+                    sessionHub.send(note);
                 }
                 prompt = currentChat!=null ? currentChat.accountName : "lettera";
             }
@@ -1039,4 +1037,9 @@ public class TerminalChat extends Lettera
             return readLine(prompt, '*', "").toCharArray();
         }
     }    
+    @Override
+    protected void receive(Note note)
+    {
+        reader.printAbove(note.text);
+    }
 }

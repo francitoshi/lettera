@@ -20,27 +20,34 @@
  */
 package io.francitoshi.lettera;
 
+import io.nut.base.util.LongNonce;
 import java.io.Serializable;
 
 /**
  *
  * @author franci
  */
-public class Note implements Serializable
+public class Note implements Serializable, Comparable<Note>
 {
-    public final long time;
+    public static final LongNonce NONCE = LongNonce.getCurrentMillisInstance(); //666 cambiar por EpochSecond
+    
+    public final long id;
+    public final long epochSecond;
     public final String session;
     public final String from;
     public final String to;
     public final String keyFrom;
     public final String keyTo;
     public final long received;
-    public volatile long sent;
     public final String text;
-
-    public Note(long time, String session, String from, String to, String keyFrom, String keyTo, long received, long sent, String text)
+    private volatile long sent;
+    private volatile boolean stored;
+    private volatile boolean showed;
+    
+    public Note(long id, long epochSecond, String session, String from, String to, String keyFrom, String keyTo, long received, long sent, String text)
     {
-        this.time = time;
+        this.id = id;
+        this.epochSecond = epochSecond;
         this.session = session;
         this.from = from;
         this.to = to;
@@ -50,5 +57,42 @@ public class Note implements Serializable
         this.sent = sent;
         this.text = text;
     }
+ 
+    public long getSent()
+    {
+        return sent;
+    }
 
+    public void setSent(long sent)
+    {
+        this.sent = sent;
+    }
+
+    public boolean isStored()
+    {
+        return stored;
+    }
+
+    public void setStored(boolean stored)
+    {
+        this.stored = stored;
+    }
+
+    public boolean isShowed()
+    {
+        return showed;
+    }
+
+    public void setShowed(boolean showed)
+    {
+        this.showed = showed;
+    }
+
+    @Override
+    public int compareTo(Note other)
+    {
+        return Long.compare(this.id, other.id);
+    }
+    
+    
 }

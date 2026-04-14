@@ -24,7 +24,6 @@ package io.francitoshi.lettera;
 import io.francitoshi.lettera.Lettera.Mode;
 import io.nut.base.crypto.gpg.PASS;
 import io.nut.base.encoding.Base64DecoderException;
-import io.nut.base.figletter.FigLetter;
 import io.nut.base.io.ThrottledInputStream;
 import io.nut.base.net.HostPort;
 import io.nut.base.net.Socks5;
@@ -91,13 +90,6 @@ public class Main
     
     public static void main(String... args)
     {
-//        String password = PASS.getKey("mutt/flikxxi@gmail.com");
-//        
-//        boolean imap = true;
-//        int port = imap ? IMAP.SAFE_PORT_993 : POP3.SAFE_PORT_995;
-//        MailBot mailBot = new MailBot(imap, "pop.gmail.com", port, true, true, "flikxxi@gmail.com", password);
-//        mailBot.start();
-
         OptionParser options = new OptionParser();
         
         CommandOption sendCmd = options.add(new CommandOption('s',"send"));

@@ -1,5 +1,5 @@
 /*
- *  MailPutBot.java
+ *  MailPush.java
  *
  *  Copyright (c) 2026 francitoshi@gmail.com
  *
@@ -24,18 +24,16 @@ import static io.francitoshi.lettera.Lettera.GPG_PURPOSE;
 import static io.francitoshi.lettera.Lettera.UTF8;
 import io.nut.base.crypto.gpg.GPG;
 import io.nut.base.security.SecureChars;
+import io.nut.base.time.JavaTime;
 import io.nut.base.util.Utils;
 import io.nut.base.util.concurrent.hive.Bee;
 import io.nut.core.net.mail.SMTP;
 import jakarta.mail.MessagingException;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
-public class MailPutBot extends Bee<Note> implements Runnable
+public class MailPush extends Bee<Note>
 {
-
     private static final GPG GPG = Lettera.GPG;
 
     private volatile boolean active;
@@ -43,13 +41,12 @@ public class MailPutBot extends Bee<Note> implements Runnable
     private final Account currentAccount;
     private final Friend currentFriend;
     private final KeyWrapper keyWrapper;
-    
-//666    private final Map<Long, Note> currentNotes;
+
     private final SecureChars secureEmailPass;
     private final SMTP smtp;
-    private final BlockingQueue<Note> queue = new LinkedBlockingQueue<>(8);
+    private final Bee<Note> hub;
 
-    public MailPutBot(Chat currentChat, Account currentAccount, Friend currentFriend, KeyWrapper keyWrapper, SecureChars secureEmailPass)
+    public MailPush(Chat currentChat, Account currentAccount, Friend currentFriend, KeyWrapper keyWrapper, SecureChars secureEmailPass, Bee<Note> hub)
     {
         this.currentChat = currentChat;
         this.currentAccount = currentAccount;
@@ -57,54 +54,40 @@ public class MailPutBot extends Bee<Note> implements Runnable
         this.keyWrapper = keyWrapper;
         this.secureEmailPass = secureEmailPass;
         this.smtp = new SMTP(currentAccount.smtpHost, currentAccount.smtpPort, currentAccount.auth, currentAccount.starttls, currentAccount.username, secureEmailPass, currentAccount.address);
+        this.hub = hub;
     }
 
-    public void sendNote(String text) throws MessagingException, InterruptedException, IOException
+    public boolean sendNote(String text) throws MessagingException, InterruptedException, IOException
     {
         byte[] plainBytes = text.getBytes(UTF8);
         char[] gpgPass = keyWrapper.unwrapKey(GPG_PURPOSE, currentChat.accountName, currentAccount.gpgPass);
         byte[] encryptedText = GPG.encryptAndSign(plainBytes, currentChat.accountAddress, gpgPass, currentChat.friendAddress);
         Arrays.fill(gpgPass, '\0');
-//666                        currentNotes.put(JavaTime.epochSecond(), note);
         if (!smtp.isConnected())
         {
             smtp.connect();
         }
         String subject = "lettera " + currentChat.accountKeyid + "-" + currentChat.friendKeyid+Utils.firstNonNull(currentChat.mutualAuthProof,"");
         smtp.send(subject, new String(encryptedText, UTF8), currentChat.friendAddress);
+        return true;
     }
-
-    @Override
-    public void run()
-    {
-        Note note;
-        active = true;
-        try
-        {
-            while ((note = queue.poll()) != null && active)
-            {
-                sendNote(note.text);
-            }
-        }
-        catch (InterruptedException | IOException | MessagingException ex)
-        {
-            System.getLogger(MailPutBot.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-        }
-    }
-
 
     @Override
     protected void receive(Note note)
     {
-        queue.add(note);
-    }
-
-    public MailPutBot start()
-    {
-        Thread th = new Thread(this, "MailPutBot");
-        th.setDaemon(true);
-        th.start();
-        return this;
+        try
+        {
+            boolean rc = sendNote(note.text);
+            if(rc)
+            {
+                note.setSent(JavaTime.epochSecond());
+                hub.send(note);
+            }
+        }
+        catch (MessagingException | InterruptedException | IOException ex)
+        {
+            System.getLogger(MailPush.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
     }
 
     public void close()

@@ -152,16 +152,18 @@ task('linux-release-deb', type: Exec) {
 }
 
 task('linux-release-rpm', type: Exec) {
-    dependsOn 'linux-release-deb'
+    dependsOn createDistribution
     group = 'release'
-    description = Generate .rpm installer for Linux with jpackage'
+    description = 'Generate a .rpm installer for Linux using jpackage'
 
     def destDir = "${buildOutputDir}/installers/linux"
+    doFirst { new File(destDir).mkdirs() }
 
     commandLine jpackageExe,
         *jpackageBaseArgs,
         '--type',           'rpm',
         '--dest',           destDir,
+        '--linux-shortcut',
         '--resource-dir',   '../packaging'
 }
 
