@@ -1,5 +1,8 @@
-# findrepe
-identify and delete duplicate files
+# lettera
+encrypted chat over GPG and email
+
+This project is an idea from francitoshi@gmail.com, inspired by the profanity 
+app, and is developed by Francitoshi and Friends.
 
 Development is being carried out by few AIs and some anonymous helpers, 
 supervised by francitoshi@gmail.com and friends.
