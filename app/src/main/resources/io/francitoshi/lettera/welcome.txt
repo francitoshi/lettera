@@ -2,10 +2,11 @@ Welcome to
 
 $LETTERA$
                              
-version $VERSION$
-Copyright (C) 2025-2026 francitoshi@gmail.com
-License GPLv3+: GNU GPL version 3 or later 
-<https://www.gnu.org/licenses/gpl.html>
+Version $VERSION$
+
+$COPYRIGHT$
+
+SPDX-License-Identifier: GPL-3.0-or-later
 
 This is free software; you are free to change and redistribute it.
 There is NO WARRANTY, to the extent permitted by law.

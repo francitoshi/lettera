@@ -1,12 +1,8 @@
-lettera comes with ABSOLUTELY NO WARRANTY. This is free software, and you
-are welcome to redistribute it under certain conditions. See the GNU
-General Public Licence version 3 for details.
+lettera - encrypted chat over GPG and email
 
-lettera let you chat with privacy.
+USAGE: lettera [OPTIONS] [COMMANDS]
 
-usage: lettera [options] [commands]
-
-Commands:
+COMMANDS:
  send [chat] [message]       send a message
  setup-account               setup an account
  setup-friend                setup a friend
@@ -14,10 +10,11 @@ Commands:
  list-friends                list friends
  list-chats                  list chats
  chat                        setup a chat
-Options:
+
+OPTIONS:
  -d  --dir                   path to lettera home folder (~/.lettera)
  -L, --license               display software license
- -S, --no-snap               disable snap mode
+ -S, --snap                  enable snap mode
  -p, --passphrase[=pass]     set the master password
  -P, --pass-pass[=path]      set the master password using command 'pass path'
  -I, --input[=path]          set a text file as stdin
@@ -27,3 +24,5 @@ Options:
  -X  --proxy host:port       uses a proxy (127.0.0.1:9050)
  -T  --tor [port]            run a local Tor instance (9050)
 (-h) --help                  show this help (-h works with no other options)
+
+Report bugs to <francitoshi@gmail.com>

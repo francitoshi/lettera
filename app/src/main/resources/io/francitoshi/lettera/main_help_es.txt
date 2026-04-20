@@ -1,12 +1,8 @@
-lettera se distribuye SIN NINGUNA GARANTÍA. Este es software libre, y
-puedes redistribuirlo bajo ciertas condiciones. Consulta la Licencia
-Pública General de GNU versión 3 para más detalles.
+lettera - chat cifrado sobre GPG y email
 
-lettera te permite chatear con privacidad.
+USO: lettera [OPCIONES] [COMANDOS]
 
-uso: lettera [opciones] [comandos]
-
-Comandos:
+COMANDOS:
  send [chat] [mensaje]       enviar un mensaje
  setup-account               configurar una cuenta
  setup-friend                configurar un amigo
@@ -14,10 +10,11 @@ Comandos:
  list-friends                listar amigos
  list-chats                  listar chats
  chat                        configurar un chat
-Opciones:
+
+OPCIONES:
  -d  --dir                   ruta al directorio de lettera (~/.lettera)
  -L, --license               mostrar la licencia de software
- -S, --no-snap               desactivar el modo snap
+ -S, --snap                  activar el modo snap
  -p, --passphrase[=clave]    establecer la contraseña maestra
  -P, --pass-pass[=ruta]      establecer la contraseña maestra usando el comando 'pass ruta'
  -I, --input[=ruta]          usar un archivo de texto como stdin
@@ -27,3 +24,5 @@ Opciones:
  -X  --proxy host:puerto     usar un proxy (127.0.0.1:9050)
  -T  --tor [puerto]          ejecutar una instancia local de Tor (9050)
 (-h) --help                  mostrar esta ayuda (-h no funciona con otras opciones)
+
+Reportar bugs a <francitoshi@gmail.com>

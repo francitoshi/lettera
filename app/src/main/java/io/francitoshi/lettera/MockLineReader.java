@@ -326,7 +326,16 @@ public class MockLineReader implements LineReader
         try
         {
             out.print(s);
+            if(buffer!=null && !buffer.isEmpty())
+            {
+                String p = ch!=null ? Strings.repeat(ch, buffer.length()) : buffer;
+                out.print(p);
+            }
             String line = IO.readLine(in);
+            if(line.isEmpty())
+            {
+                line = buffer;
+            }
             String pass = ch!=null ? Strings.repeat(ch, line.length()) : line;
             out.println(pass);
             return line;

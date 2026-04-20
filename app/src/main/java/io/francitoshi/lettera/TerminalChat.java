@@ -163,7 +163,7 @@ public class TerminalChat extends Lettera
                 boolean wf = countFriends()==0 && countPubKeys()>0;
                 wizardSetup(wa, wf);
             }
-                
+
             listChats();
             
             showHelp();
@@ -744,15 +744,14 @@ public class TerminalChat extends Lettera
 
     private void importAccounts() throws IOException, InterruptedException, GeneralSecurityException 
     {
+        ansiTitle("import-accounts");
         SecKey[] items = GPG.getSecKeys();
-
         for(int r=0;r<items.length;r++)
         {
             UserId[] uids = items[r].getUids();
             String keyid = items[r].getMain().keyid;
             for(int u=0;u<uids.length;u++)
             {
-                ansiTitle("import-accounts");
                 reader.printAbove("uid: "+uids[u].uid);
                 reader.printAbove("keyid: "+keyid);
                 if(1==readYesOrNo("Import?", LOOPS))
@@ -763,19 +762,23 @@ public class TerminalChat extends Lettera
             }
         }
     }
-    private void importFriends() throws GeneralSecurityException
+    private void importFriends() throws IOException, InterruptedException, GeneralSecurityException
     {
-        Friend[] items = db.getFriends();
-
+        ansiTitle("import-friends");
+        PubKey[] items = GPG.getPubKeys();
         for(int r=0;r<items.length;r++)
         {
-            ansiTitle("import-friends");
-            reader.printAbove("name: "+items[r].name);
-            reader.printAbove("address: "+items[r].address);
-            reader.printAbove("keyid: "+items[r].keyid);
-            if(1==readYesOrNo("Import?", LOOPS))
+            UserId[] uids = items[r].getUids();
+            String keyid = items[r].getMain().keyid;
+            for(int u=0;u<uids.length;u++)
             {
-                setupFriend(items[r].name, items[r].address, items[r].keyid);
+                reader.printAbove("uid: "+uids[u].uid);
+                reader.printAbove("keyid: "+keyid);
+                if(1==readYesOrNo("Import?", LOOPS))
+                {
+                    String[] nameEmail = Emails.parseEmailAddress(uids[u].uid);
+                    setupFriend(nameEmail[0], nameEmail[1], keyid);
+                }
             }
         }
     }

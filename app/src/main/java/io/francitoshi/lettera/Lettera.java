@@ -46,7 +46,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.jline.utils.AttributedString;
@@ -137,9 +136,8 @@ public class Lettera extends Bee<Note> implements AutoCloseable
             passphrase = new SecureChars(firstTime ? PassphraseManager.createPassphrase(mock) : PassphraseManager.getPassphrase(mock));
         }
         long t0 = System.nanoTime();
-        char[] pass = passphrase.getChars();
-        byte[] seed = ARGON2.rawHash(config.iterations, config.memoryKB, config.parallelism, pass, config.getSalt());
-        Arrays.fill(pass, '\0');
+        final Config finalConfig = config;
+        byte[] seed = passphrase.apply((pass)-> ARGON2.rawHash(finalConfig.iterations, finalConfig.memoryKB, finalConfig.parallelism, pass, finalConfig.getSalt()));        
 
         long t1 = System.nanoTime();
         if(debug)

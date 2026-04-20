@@ -13,7 +13,7 @@ repositories
     maven { url 'https://jitpack.io' }
 }
 
-def nutVersion = '0.1.64'
+def nutVersion = '0.1.67'
 def bouncycastleVersion = '1.83'
 def jlineVersion = '3.29.0'
 def briarproject = '0.4.8.22'

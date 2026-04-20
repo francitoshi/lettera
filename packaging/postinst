@@ -3,4 +3,10 @@ set -e
 
 ln -sf /opt/lettera/bin/lettera /usr/bin/lettera || true
 
+cat > /usr/bin/lettera-lite << 'EOF'
+#!/bin/sh
+exec /opt/lettera/bin/lettera --lite "$@"
+EOF
+chmod +x /usr/bin/lettera-lite
+
 exit 0

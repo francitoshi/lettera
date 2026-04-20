@@ -20,11 +20,11 @@
  */
 package io.francitoshi.lettera;
 
-
 import io.francitoshi.lettera.Lettera.Mode;
 import io.nut.base.crypto.gpg.PASS;
 import io.nut.base.encoding.Base64DecoderException;
 import io.nut.base.io.ThrottledInputStream;
+import io.nut.base.jar.Jars;
 import io.nut.base.net.HostPort;
 import io.nut.base.net.Socks5;
 import io.nut.base.net.Tor;
@@ -35,8 +35,9 @@ import io.nut.base.options.MissingOptionParameterException;
 import io.nut.base.options.OptionParser;
 import io.nut.base.options.StringOption;
 import io.nut.base.platform.Snap;
-import io.nut.base.resources.ResourceBundles;
+import io.nut.base.resources.I18n;
 import io.nut.base.security.SecureChars;
+import io.nut.base.time.JavaTime;
 import io.nut.base.util.Java;
 import io.nut.base.util.Utils;
 import java.io.File;
@@ -48,45 +49,52 @@ import java.io.OutputStream;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
-import java.util.Locale;
-import java.util.ResourceBundle;
 import java.util.concurrent.TimeUnit;
 import org.jline.terminal.*;
 
 public class Main
 {
-    private static final String LETTERA = "lettera";
-    private static final String REPORT_BUGS = "Report bugs to <francitoshi@gmail.com>\n";
-
+    static final String LETTERA = "lettera";
+    static final String COPYRIGHT = "Copyright (C) 2025-2026 francitoshi@gmail.com";
     static final String LETTERA_DB = "lettera.db";
     static final String GMAIL_ADD_PASS = "https://myaccount.google.com/apppasswords";
     static final String TOR_HOST = "127.0.0.1";
     static final int    TOR_PORT = 9050;
     static final String TOR_HOST_PORT = TOR_HOST+":"+TOR_PORT;
 
-    static final String VER = Utils.firstNonNull(Main.class.getPackage().getImplementationVersion(), "dev");
+    static final String VER = Utils.firstNonNull(Main.class.getPackage().getImplementationVersion(), "[dev]");
+    static final String BUILD_DATE;
+    static final String VER_BUILD_DATE;
     static final String LICENSE_TXT;
-    static final String MAIN_HELP_TXT;
+    static final String HELP_TXT;
     static final String WELCOME_TXT;
     static final String LETTERA_TXT;
 
     static 
     {
-        ResourceBundle bundle = ResourceBundle.getBundle(Main.class.getName(), Locale.getDefault());
+        I18n i18n = I18n.of(Main.class);
 
-        MAIN_HELP_TXT = ResourceBundles.getResourceAsString(Main.class, "main_help.txt", "");
-        LICENSE_TXT = ResourceBundles.getResourceAsString(Main.class, "license.txt", "");
-        LETTERA_TXT = ResourceBundles.getResourceAsString(Main.class, "lettera.txt", "LETTERA");
-
-        String welcomeFileName = bundle.getString("welcome");
-        WELCOME_TXT = ResourceBundles.getResourceAsString(Main.class, welcomeFileName, "welcome").replace("$LETTERA$", LETTERA_TXT).replace("$VERSION$", VER);
+        HELP_TXT = i18n.resolveResource("help", "");
+        LICENSE_TXT = i18n.resolveResource("license", "").replace("$COPYRIGHT$", COPYRIGHT);
+        LETTERA_TXT = i18n.getResource("lettera.txt", "LETTERA");
+        String build;
+        try
+        {
+            build = JavaTime.YYYY_MM_DD.format(Jars.getClassBuildLocalDate(Main.class));
+        }
+        catch (IOException ex)
+        {
+            build = "(????-??-??)";
+        }
+        BUILD_DATE = build;
+        VER_BUILD_DATE = VER+" build "+BUILD_DATE;
+        WELCOME_TXT = i18n.resolveResource("welcome", "")
+                .replace("$LETTERA$", LETTERA_TXT)
+                .replace("$VERSION$", VER_BUILD_DATE)
+                .replace("$COPYRIGHT$", COPYRIGHT);
     }
     
-    private static final String VERSION 
-            = LETTERA + "  version " + VER + " (2026-03-27)\n"
-            + "Copyright (C) 2025-2026 by francitoshi@gmail.com\n";
-    private static final String VERSION_LICENSE_REPORT_BUGS = VERSION + "\n\n" + LICENSE_TXT + "\n\n" + REPORT_BUGS;
-    private static final String VERSION_HELP_REPORT_BUGS = VERSION + "\n\n" + MAIN_HELP_TXT + "\n\n" + REPORT_BUGS;
+    private static final String VERSION = LETTERA + "  v" + VER_BUILD_DATE;
     
     public static void main(String... args)
     {
@@ -110,7 +118,8 @@ public class Main
         StringOption torOp = options.add(new StringOption('T', "tor"));
         BooleanOption version = options.add(new BooleanOption("version"));
         BooleanOption help = options.add(new BooleanOption('h', "help"));
-        BooleanOption noSnapOp = options.add(new BooleanOption('S', "no-snap"));
+        BooleanOption snapOp = options.add(new BooleanOption('S', "snap"));
+        BooleanOption lite = options.add(new BooleanOption("lite"));
         
         try
         {
@@ -118,7 +127,7 @@ public class Main
 
             if (help.isUsed())
             {
-                System.out.println(VERSION_HELP_REPORT_BUGS);
+                System.out.println(HELP_TXT);
                 return;
             }
             if (version.isUsed())
@@ -128,7 +137,7 @@ public class Main
             }
             if (license.isUsed())
             {
-                System.out.println(VERSION_LICENSE_REPORT_BUGS);
+                System.out.println(LICENSE_TXT);
                 return;
             }
             boolean cmdUsed = CommandOption.isUsed(sendCmd, listAccountsCmd, listFriendsCmd, listChatsCmd);
@@ -149,23 +158,27 @@ public class Main
                 passphrase = new SecureChars(PASS.getKey(passPassOp.getValue()).toCharArray());
                 System.out.println("pass-pass: ****************");
             }
-            File altDir = null;
+
+            final File letteraDir;
             if (dirOp.isUsed())
             {
-                altDir = new File(dirOp.getValue()).getCanonicalFile();
-                if(altDir.exists() && altDir.isFile())
+                letteraDir = new File(dirOp.getValue()).getCanonicalFile();
+                if(letteraDir.exists() && letteraDir.isFile())
                 {
                     System.err.println("'%s' is an existing file");
                     System.exit(1);
                 }
-                System.out.printf("data-path: %s\n", altDir);
+                System.out.printf("data-path: %s\n", letteraDir);
             }
-            else if(Snap.isSnap() && !noSnapOp.isUsed())
+            else if(Snap.isSnap() && snapOp.isUsed())
             {
-                altDir = Snap.fixTmpDir();
+                letteraDir = Snap.fixTmpDir();
+            }
+            else
+            {
+                letteraDir = new File(Java.USER_HOME, ".lettera");
             }
             
-            final File letteraDir = altDir!=null ? altDir : new File(Java.USER_HOME, ".lettera");
             final File configFile = new File(letteraDir, "config.properties");
             final File keystoreFile = new File(letteraDir, "keystore.p12");
             final File letteraDb = new File(letteraDir, LETTERA_DB);
@@ -249,7 +262,14 @@ public class Main
                     try(TerminalChat chat = new TerminalChat(terminal, configFile, keystoreFile, letteraDb, passphrase, mock, debugOp.isUsed()).open())
                     {
                         chat.setWizard(wizard);
-                        chat.run();
+                        if(lite.isUsed())
+                        {
+                            System.err.println("NOT YET IMPLEMENTED");
+                        }
+                        else
+                        {
+                            chat.run();
+                        }
                     }
                 }
             }
