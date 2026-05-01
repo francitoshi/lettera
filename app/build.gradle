@@ -13,7 +13,7 @@ repositories
     maven { url 'https://jitpack.io' }
 }
 
-def nutVersion = '0.1.67'
+def nutVersion = '0.1.71'
 def bouncycastleVersion = '1.83'
 def jlineVersion = '3.29.0'
 def briarproject = '0.4.8.22'
@@ -115,7 +115,8 @@ build.dependsOn createDistribution
 def buildOutputDir = layout.buildDirectory.get().asFile
 
 def javaHome = System.getenv('JAVA_HOME') ?:
-    javaToolchains.launcherFor {
+    javaToolchains.launcherFor 
+    {
         languageVersion = JavaLanguageVersion.of(17)
     }.get().metadata.installationPath.asFile.absolutePath
 
@@ -123,19 +124,21 @@ def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
 
 def jpackageExe = "${javaHome}${File.separator}bin${File.separator}jpackage${isWindows ? '.exe' : ''}"
 
-def jpackageBaseArgs = [
+def jpackageBaseArgs = 
+[
     '--input',       "${buildOutputDir}/distribution",
     '--name',        'lettera',
     '--app-version', project.version,
     '--main-jar',    "lettera-${project.version}.jar",
     '--main-class',  'io.francitoshi.lettera.Main',
-    '--description', 'a gpg+email chat app',
+    '--description', 'encrypted chat over GPG and email',
     '--vendor',      'francitoshi',
 ]
 
 // ── LINUX: generates .deb and .rpm ────────────────────────────────
 
-task('linux-release-deb', type: Exec) {
+task('linux-release-deb', type: Exec) 
+{
     dependsOn createDistribution
     group = 'release'
     description = 'Generate a .deb installer for Linux using jpackage'
@@ -151,7 +154,8 @@ task('linux-release-deb', type: Exec) {
         '--resource-dir',   '../packaging'
 }
 
-task('linux-release-rpm', type: Exec) {
+task('linux-release-rpm', type: Exec)
+{
     dependsOn createDistribution
     group = 'release'
     description = 'Generate a .rpm installer for Linux using jpackage'
@@ -167,7 +171,8 @@ task('linux-release-rpm', type: Exec) {
         '--resource-dir',   '../packaging'
 }
 
-task('linux-release') {
+task('linux-release')
+{
     dependsOn 'linux-release-deb', 'linux-release-rpm'
     group = 'release'
     description = 'Generates .deb and .rpm installers for Linux with jpackage'
@@ -175,7 +180,8 @@ task('linux-release') {
 
 // ── WINDOWS: Generates .exe and .msi ──────────────────────────────
 
-task('windows-release-exe', type: Exec) {
+task('windows-release-exe', type: Exec)
+{
     dependsOn createDistribution
     group = 'release'
     description = 'Generate .exe installer for Windows with jpackage'
@@ -193,7 +199,8 @@ task('windows-release-exe', type: Exec) {
         '--win-console'
 }
 
-task('windows-release-msi', type: Exec) {
+task('windows-release-msi', type: Exec)
+{
     dependsOn 'windows-release-exe'
     group = 'release'
     description = 'Genera instalador .msi para Windows con jpackage'
@@ -210,7 +217,8 @@ task('windows-release-msi', type: Exec) {
         '--win-console'
 }
 
-task('windows-release') {
+task('windows-release')
+{
     dependsOn 'windows-release-exe', 'windows-release-msi'
     group = 'release'
     description = 'Generate .exe and .msi installers for Windows with jpackage'
@@ -218,7 +226,8 @@ task('windows-release') {
 
 // ── MAC: generate .dmg y .pkg ──────────────────────────────────
 
-task('mac-release-dmg', type: Exec) {
+task('mac-release-dmg', type: Exec)
+{
     dependsOn createDistribution
     group = 'release'
     description = 'Generate a .dmg installer for macOS using jpackage'
@@ -233,7 +242,8 @@ task('mac-release-dmg', type: Exec) {
         '--mac-package-name', 'lettera'
 }
 
-task('mac-release-pkg', type: Exec) {
+task('mac-release-pkg', type: Exec)
+{
     dependsOn 'mac-release-dmg'
     group = 'release'
     description = 'Generate a .pkg installer for macOS using jpackage'
@@ -246,7 +256,8 @@ task('mac-release-pkg', type: Exec) {
         '--dest',             destDir
 }
 
-task('mac-release') {
+task('mac-release')
+{
     dependsOn 'mac-release-dmg', 'mac-release-pkg'
     group = 'release'
     description = 'Generate .dmg and .pkg installers for macOS with jpackage'

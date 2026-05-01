@@ -24,7 +24,6 @@ import io.francitoshi.lettera.Lettera.Mode;
 import io.nut.base.crypto.gpg.PASS;
 import io.nut.base.encoding.Base64DecoderException;
 import io.nut.base.io.ThrottledInputStream;
-import io.nut.base.jar.Jars;
 import io.nut.base.net.HostPort;
 import io.nut.base.net.Socks5;
 import io.nut.base.net.Tor;
@@ -37,7 +36,6 @@ import io.nut.base.options.StringOption;
 import io.nut.base.platform.Snap;
 import io.nut.base.resources.I18n;
 import io.nut.base.security.SecureChars;
-import io.nut.base.time.JavaTime;
 import io.nut.base.util.Java;
 import io.nut.base.util.Utils;
 import java.io.File;
@@ -56,19 +54,20 @@ public class Main
 {
     static final String LETTERA = "lettera";
     static final String COPYRIGHT = "Copyright (C) 2025-2026 francitoshi@gmail.com";
+    static final String VER = Utils.firstNonNull(Main.class.getPackage().getImplementationVersion(), "[dev]");
+    private static final String VERSION = LETTERA + " v" + VER;
+    static final String LICENSE_TXT;
+    static final String HELP_TXT;
+    static final String WELCOME_TXT;
+
+    static final String LETTERA_TXT;
     static final String LETTERA_DB = "lettera.db";
-    static final String GMAIL_ADD_PASS = "https://myaccount.google.com/apppasswords";
+
     static final String TOR_HOST = "127.0.0.1";
     static final int    TOR_PORT = 9050;
     static final String TOR_HOST_PORT = TOR_HOST+":"+TOR_PORT;
 
-    static final String VER = Utils.firstNonNull(Main.class.getPackage().getImplementationVersion(), "[dev]");
-    static final String BUILD_DATE;
-    static final String VER_BUILD_DATE;
-    static final String LICENSE_TXT;
-    static final String HELP_TXT;
-    static final String WELCOME_TXT;
-    static final String LETTERA_TXT;
+    static final String GMAIL_ADD_PASS = "https://myaccount.google.com/apppasswords";
 
     static 
     {
@@ -77,25 +76,13 @@ public class Main
         HELP_TXT = i18n.resolveResource("help", "");
         LICENSE_TXT = i18n.resolveResource("license", "").replace("$COPYRIGHT$", COPYRIGHT);
         LETTERA_TXT = i18n.getResource("lettera.txt", "LETTERA");
-        String build;
-        try
-        {
-            build = JavaTime.YYYY_MM_DD.format(Jars.getClassBuildLocalDate(Main.class));
-        }
-        catch (IOException ex)
-        {
-            build = "(????-??-??)";
-        }
-        BUILD_DATE = build;
-        VER_BUILD_DATE = VER+" build "+BUILD_DATE;
+
         WELCOME_TXT = i18n.resolveResource("welcome", "")
                 .replace("$LETTERA$", LETTERA_TXT)
-                .replace("$VERSION$", VER_BUILD_DATE)
+                .replace("$VERSION$", VER)
                 .replace("$COPYRIGHT$", COPYRIGHT);
     }
-    
-    private static final String VERSION = LETTERA + "  v" + VER_BUILD_DATE;
-    
+        
     public static void main(String... args)
     {
         OptionParser options = new OptionParser();

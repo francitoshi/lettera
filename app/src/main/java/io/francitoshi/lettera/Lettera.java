@@ -145,7 +145,7 @@ public class Lettera extends Bee<Note> implements AutoCloseable
             this.out.printf("argon2 = %d ms\n", TimeUnit.NANOSECONDS.toMillis(t1-t0));
         }
         
-        passphraser = KRIPTO.getPassphraserHkdf(KRIPTO.hkdfWithSha512, seed, config.getSalt());
+        passphraser = KRIPTO.getPassphraserHkdf(KRIPTO.getHkdfWithSha512(), seed, config.getSalt());
         ksm = KRIPTO.getKeyStoreManagerPKCS12(passphraser);
         keyWrapper = new KeyWrapper(new SecureWrapper(KRIPTO, seed, Kripto.Hkdf.HkdfWithSha512));
         

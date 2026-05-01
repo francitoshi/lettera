@@ -149,7 +149,7 @@ public class TerminalChat extends Lettera
         return (TerminalChat) super.open();
     }
     
-    void run() throws IOException, InterruptedException, Base64DecoderException, NoSuchAlgorithmException, CertificateException, KeyStoreException, Exception
+    void run() throws IOException, InterruptedException, Exception
     {
         //.add(storeBee, printBee);
         reader = buildLineReader(getCommandsCompleter());
@@ -317,17 +317,26 @@ public class TerminalChat extends Lettera
         }
     }
 
-    int readYesOrNo(String prompt, int loops) throws UserInterruptException, EndOfFileException
+    enum YesNoMode
+    {
+        Yn("[Y/n]"), yN("[n/N]"), yn("[y/n]");
+        final String text;
+        private YesNoMode(String text)
+        {
+            this.text = text;
+        }
+    }
+    int readYesOrNo(String prompt, YesNoMode mode, int loops) throws UserInterruptException, EndOfFileException
     {
         for(int i=0;i<loops;i++)
         {
             LineReader lineReader = buildLineReader(null);
-            String yn = lineReader.readLine(prompt+"[y/n]: ", null, "y").trim();
-            if(yn.isEmpty() || yn.equalsIgnoreCase("y"))
+            String yn = lineReader.readLine(prompt+mode.text+": ", null, null).trim();
+            if(yn.equalsIgnoreCase("y") || (yn.isEmpty() && mode==YesNoMode.Yn))
             {
                 return 1;
             }
-            if(yn.trim().equalsIgnoreCase("n"))
+            if(yn.equalsIgnoreCase("n") || (yn.isEmpty() && mode==YesNoMode.yN))
             {
                 return 0;
             }
@@ -706,7 +715,7 @@ public class TerminalChat extends Lettera
         ansiTitle("wizard");
         if(accounts)
         {
-            int yn = readYesOrNo("You can import your gpg secrect keys as accounts.\nDo you want to import them now?", LOOPS);
+            int yn = readYesOrNo("You can import your gpg secrect keys as accounts.\nDo you want to import them now?", YesNoMode.Yn, LOOPS);
             if(yn==1)
             {
                 reader.printAbove("lettera>"+_IMPORT_ACCOUNTS);
@@ -715,7 +724,7 @@ public class TerminalChat extends Lettera
         }
         if(friends)
         {
-            int yn = readYesOrNo("You can import your gpg public keys as friends.\nDo you want to import them now?", LOOPS);
+            int yn = readYesOrNo("You can import your gpg public keys as friends.\nDo you want to import them now?", YesNoMode.Yn, LOOPS);
             if(yn==1)
             {
                 this.out.println("lettera>"+_IMPORT_FRIENDS);
@@ -724,7 +733,7 @@ public class TerminalChat extends Lettera
         }
         if(accounts && countAccounts()==0)
         {
-            int yn = readYesOrNo("Do you want to create a new account?", LOOPS);
+            int yn = readYesOrNo("Do you want to create a new account?", YesNoMode.Yn, LOOPS);
             if(yn==1)
             {
                 this.out.println("lettera>"+_SETUP_ACCOUNT);
@@ -733,7 +742,7 @@ public class TerminalChat extends Lettera
         }
         if(friends && countFriends()==0)
         {
-            int yn = readYesOrNo("Do you want to create a new friend?", LOOPS);
+            int yn = readYesOrNo("Do you want to create a new friend?", YesNoMode.Yn, LOOPS);
             if(yn==1)
             {
                 this.out.println("lettera>"+_SETUP_FRIEND);
@@ -754,7 +763,7 @@ public class TerminalChat extends Lettera
             {
                 reader.printAbove("uid: "+uids[u].uid);
                 reader.printAbove("keyid: "+keyid);
-                if(1==readYesOrNo("Import?", LOOPS))
+                if(1==readYesOrNo("Import?", YesNoMode.Yn, LOOPS))
                 {
                     String[] nameEmail = Emails.parseEmailAddress(uids[u].uid);
                     setupAccount(nameEmail[0], nameEmail[1], keyid);
@@ -774,7 +783,7 @@ public class TerminalChat extends Lettera
             {
                 reader.printAbove("uid: "+uids[u].uid);
                 reader.printAbove("keyid: "+keyid);
-                if(1==readYesOrNo("Import?", LOOPS))
+                if(1==readYesOrNo("Import?", YesNoMode.Yn, LOOPS))
                 {
                     String[] nameEmail = Emails.parseEmailAddress(uids[u].uid);
                     setupFriend(nameEmail[0], nameEmail[1], keyid);

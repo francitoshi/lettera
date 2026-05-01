@@ -84,7 +84,7 @@ jobs:
             --main-jar lettera-${{env.VERSION}}.jar \
             --main-class io.francitoshi.lettera.Main \
             --dest build/installers/linux \
-            --description "a gpg+email chat app" \
+            --description "encrypted chat over GPG and email" \
             --vendor "francitoshi" \
             --linux-shortcut \
             --resource-dir packaging
@@ -100,7 +100,7 @@ jobs:
             --main-jar lettera-${{env.VERSION}}.jar \
             --main-class io.francitoshi.lettera.Main \
             --dest build/installers/linux \
-            --description "a gpg+email chat app" \
+            --description "encrypted chat over GPG and email" \
             --vendor "francitoshi" \
             --resource-dir packaging
 
@@ -173,7 +173,7 @@ jobs:
             --main-jar lettera-${{env.VERSION}}.jar \
             --main-class io.francitoshi.lettera.Main \
             --dest build/installers/mac \
-            --description "a gpg+email chat app" \
+            --description "encrypted chat over GPG and email" \
             --vendor "francitoshi" \
             --mac-package-name "lettera"
 
@@ -187,7 +187,7 @@ jobs:
             --main-jar lettera-${{env.VERSION}}.jar \
             --main-class io.francitoshi.lettera.Main \
             --dest build/installers/mac \
-            --description "a gpg+email chat app" \
+            --description "encrypted chat over GPG and email" \
             --vendor "francitoshi"
 
       - name: Upload Mac installers
@@ -226,11 +226,11 @@ jobs:
 
       - name: Create .exe installer
         run: |
-          jpackage --type exe --name lettera --app-version ${{env.VERSION}} --input app\build\distribution --main-jar lettera-${{env.VERSION}}.jar --main-class io.francitoshi.lettera.Main --dest build\installers\windows --description "a gpg+email chat app" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
+          jpackage --type exe --name lettera --app-version ${{env.VERSION}} --input app\build\distribution --main-jar lettera-${{env.VERSION}}.jar --main-class io.francitoshi.lettera.Main --dest build\installers\windows --description "encrypted chat over GPG and email" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
 
       - name: Create .msi installer
         run: |
-          jpackage --type msi --name lettera --app-version ${{env.VERSION}} --input app\build\distribution --main-jar lettera-${{env.VERSION}}.jar --main-class io.francitoshi.lettera.Main --dest build\installers\windows --description "a gpg+email chat app" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
+          jpackage --type msi --name lettera --app-version ${{env.VERSION}} --input app\build\distribution --main-jar lettera-${{env.VERSION}}.jar --main-class io.francitoshi.lettera.Main --dest build\installers\windows --description "encrypted chat over GPG and email" --vendor "francitoshi" --win-shortcut --win-menu --win-menu-group "francitoshi"
 
       - name: Upload Windows installers
         uses: actions/upload-artifact@v4
