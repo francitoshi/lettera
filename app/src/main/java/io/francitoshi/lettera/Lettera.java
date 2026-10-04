@@ -1,42 +1,36 @@
 /*
- *  Lettera.java
- *
- *  Copyright (c) 2026 francitoshi@gmail.com
- *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- *  Report bugs or new features to: francitoshi@gmail.com
+ * Copyright (C) 2025-2026 francitoshi@gmail.com
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * See LICENSE file in the project root for full license text.
  */
 package io.francitoshi.lettera;
 
+import io.francitoshi.lettera.email.MailPush;
+import io.francitoshi.lettera.email.MailPoll;
+import io.francitoshi.lettera.data.Friend;
+import io.francitoshi.lettera.data.Sender;
 import de.mkammerer.argon2.Argon2Advanced;
 import de.mkammerer.argon2.Argon2Factory;
-import static io.francitoshi.lettera.TerminalChat.DB;
+import io.francitoshi.lettera.bot.HubBot;
+import io.francitoshi.lettera.data.PlainNote;
 import io.nut.base.crypto.KeyStoreManager;
 import io.nut.base.crypto.Kripto;
 import io.nut.base.crypto.Passphraser;
 import io.nut.base.crypto.Rand;
 import io.nut.base.crypto.SecureWrapper;
 import io.nut.base.crypto.gpg.GPG;
+import io.nut.base.crypto.gpg.MainKey;
 import io.nut.base.crypto.gpg.PubKey;
 import io.nut.base.crypto.gpg.SecKey;
+import io.nut.base.crypto.gpg.UserId;
 import io.nut.base.encoding.Ascii85;
 import io.nut.base.encoding.Base64DecoderException;
+import io.nut.base.logging.Log;
+import io.nut.base.net.Emails;
 import io.nut.base.security.SecureChars;
 import io.nut.base.text.Table;
-import io.nut.base.util.concurrent.hive.Bee;
-import io.nut.base.util.concurrent.hive.Hive;
+import io.nut.base.concurrent.Lazy;
+import io.nut.base.concurrent.actor.ActorHub;
 import jakarta.mail.MessagingException;
 import java.io.File;
 import java.io.IOException;
@@ -46,16 +40,26 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jline.utils.AttributedString;
 
-public class Lettera extends Bee<Note> implements AutoCloseable
+public class Lettera implements AutoCloseable
 {
-    public static final String GPG_PURPOSE = "gpg";
     public static final Charset UTF8 = StandardCharsets.UTF_8;
     public static final int LOOP_MILLIS = 15_000;
     public static final String HR = "----------------------------------------";
+    
+    public static final int TRUST_LEVEL_KEY_MISMATCH_DANGER = -1;
+    public static final int TRUST_LEVEL_UNKNOWN = 0;
+    public static final int TRUST_LEVEL_UNVERIFIED = 1;
+    public static final int TRUST_LEVEL_VERIFIED_MANUAL = 2;
+    public static final int TRUST_LEVEL_VERIFIED_JPAKE = 3;
     
     static final Kripto KRIPTO = Kripto.getInstance(false);
     static final Rand RAND = Kripto.getRand();
@@ -66,6 +70,9 @@ public class Lettera extends Bee<Note> implements AutoCloseable
     static final int KEY_BYTES = 32;
     static final int SALT_BYTES = 32;
     static final Argon2Advanced ARGON2 = Argon2Factory.createAdvanced(Argon2Factory.Argon2Types.ARGON2id, SALT_BYTES, KEY_BYTES);
+    
+    static final String GPG_PASSPHRASE_WRAP = "gpg+passphrase";
+    static final Log LOG = Log.of(Lettera.class);
     
     public enum Mode 
     {
@@ -80,13 +87,16 @@ public class Lettera extends Bee<Note> implements AutoCloseable
     };
     
     final PrintStream out;
-    final File configFile;
-    final File keystoreFile;
-    final File letteraDb;
-    volatile SecureChars passphrase;
+    final File letteraDir;
+    private volatile String username;
+    private volatile SecureChars passphrase;
+    private volatile File configFile;
+    private volatile File keystoreFile;
+    private volatile File letteraDb;
     final boolean mock;
     final boolean debug;
     final boolean console;
+    final boolean passpath;
     
     volatile KeyWrapper keyWrapper;
     volatile Passphraser passphraser;
@@ -94,28 +104,51 @@ public class Lettera extends Bee<Note> implements AutoCloseable
     
     volatile LetteraDb db;
 
-    volatile SecKey[] secs;
-    volatile PubKey[] pubs;
+    public static final int TTL = 4321;
     
-    private volatile Account currentAccount;
-    private volatile Friend currentFriend;
-    volatile Chat currentChat;
-    private volatile Map<Long, Note> currentNotes;
+    final ActorHub hub;
+    
+    final Supplier<SecKey[]> secs = new Lazy<>(TTL, ()->
+    {
+        try
+        {
+            return GPG.getSecKeys();
+        }
+        catch (IOException | InterruptedException ex)
+        {
+            throw new RuntimeException(ex);
+        }
+    });
+    final Supplier<PubKey[]> pubs = new Lazy<>(TTL, ()->
+    {
+        try
+        {
+            return GPG.getPubKeys();
+        }
+        catch (IOException | InterruptedException ex)
+        {
+            throw new RuntimeException(ex);
+        }
+    });
+    
+    volatile Sender sender;
+    private volatile Friend currentSession;
+    private volatile Map<Long, PlainNote> currentNotes;
 
     private volatile Mode mode = Mode.ReadWrite;
     private volatile MailPush mailPush;
     private volatile MailPoll mailPoll;
-    volatile SessionHub sessionHub;
+    volatile HubBot hubBot;
 
-    final Hive hive = new Hive(Hive.CORES, Hive.CORES, Hive.CORES, 30_000);
     
-    public Lettera(PrintStream out, File configFile, File keystoreFile, File letteraDb, SecureChars passphrase, boolean mock, boolean debug)
+    public Lettera(ActorHub hub, PrintStream out, File letteraDir, String username, SecureChars passphrase, boolean passpath, boolean mock, boolean debug)
     {
+        this.hub = hub;
         this.out = out;
-        this.configFile = configFile;
-        this.keystoreFile = keystoreFile;
-        this.letteraDb = letteraDb;
+        this.letteraDir = letteraDir;
+        this.username = username;
         this.passphrase = passphrase;
+        this.passpath = passpath;
         this.mock = mock;
         this.debug = debug;
         this.console = System.console()!=null;
@@ -123,6 +156,16 @@ public class Lettera extends Bee<Note> implements AutoCloseable
     
     public Lettera open() throws IOException, Base64DecoderException, InterruptedException, KeyStoreException, NoSuchAlgorithmException, CertificateException, Exception
     {
+        letteraDir.mkdirs();
+        if(username==null)
+        {
+            username = PassphraseManager.getUsername(mock);
+        }
+
+        this.configFile = new File(letteraDir, username+".properties");
+        this.keystoreFile = new File(letteraDir, username+".p12");
+        this.letteraDb = new File(letteraDir, username+".db");
+        
         boolean firstTime = !configFile.exists() || !keystoreFile.exists();
         Config config = Config.load(configFile);
         if(config==null)
@@ -130,20 +173,23 @@ public class Lettera extends Bee<Note> implements AutoCloseable
             config = Config.createDefault(configFile);
             firstTime = true;
         }
-        
+
         if(passphrase==null)
         {
             passphrase = new SecureChars(firstTime ? PassphraseManager.createPassphrase(mock) : PassphraseManager.getPassphrase(mock));
+            if(passphrase==null)
+            {
+                return this;
+            }
         }
+            
         long t0 = System.nanoTime();
         final Config finalConfig = config;
         byte[] seed = passphrase.apply((pass)-> ARGON2.rawHash(finalConfig.iterations, finalConfig.memoryKB, finalConfig.parallelism, pass, finalConfig.getSalt()));        
 
         long t1 = System.nanoTime();
-        if(debug)
-        {
-            this.out.printf("argon2 = %d ms\n", TimeUnit.NANOSECONDS.toMillis(t1-t0));
-        }
+        
+        LOG.debug("argon2 = %d ms", TimeUnit.NANOSECONDS.toMillis(t1-t0));
         
         passphraser = KRIPTO.getPassphraserHkdf(KRIPTO.getHkdfWithSha512(), seed, config.getSalt());
         ksm = KRIPTO.getKeyStoreManagerPKCS12(passphraser);
@@ -173,43 +219,37 @@ public class Lettera extends Bee<Note> implements AutoCloseable
         
         this.db = new LetteraDb(this.letteraDb, dbPass);
         
-        loadAllKeys();
+        //666 this.hubBot = new HubBot(hive, HR, db, dbPass);
+        
         return this;
     }
     
     public String startChat(String session, Mode mode)
     {
-        Chat chat = db.getChat(session);
-        if(chat==null)
-        {
-            return null;
-        }
-//666        verificar que no han cambiado las direcciones ni las keyid
-                
-        currentAccount = db.getAccount(chat.accountName);
-        currentFriend = db.getFriend(chat.friendName);
+        currentSession = db.getFriend(session);
         
-        Chat chat2 = Chat.build(currentAccount, currentFriend, chat.mutualAuthProof);
+//666        Chat chat2 = Chat.build(sender, currentSession, currentSession.mutualAuthProof);
 
-        if(!chat.equals(chat2))
+//666        if(!chat.equals(chat2))
         {
             System.err.println("WARNING: FIELDS CHANGED");
-            System.err.println(chat.diff(chat2));
+//666            System.err.println(chat.diff(chat2));
         }
         
-        currentChat = chat;
-        currentNotes = db.getNotes(session);
+//666        currentChat = chat;
+//666        currentNotes = db.getNotes(session);
         
-        SecureChars secureEmailPass = new SecureChars(keyWrapper.unwrapKey("email", currentAccount.name, currentAccount.emailPass));
-        SecureChars secureGpgPass = new SecureChars(keyWrapper.unwrapKey(GPG_PURPOSE, currentAccount.name, currentAccount.gpgPass));
+        SecureChars secureEmailPass = new SecureChars(keyWrapper.unwrapKey("email", "pass", sender.emailPass));
+        SecureChars secureGpgPass = new SecureChars(keyWrapper.unwrapKey("gpg", "pass", sender.gpgPassphrase));
         
 //666        mailReader = new IMAP(currentAccount.imapHost, currentAccount.imapPort, currentAccount.auth, currentAccount.starttls, false, currentAccount.username, secureEmailPass);
 //666        smtp = new SMTP(currentAccount.smtpHost, currentAccount.smtpPort, currentAccount.auth, currentAccount.starttls, currentAccount.username, secureEmailPass, currentAccount.address);
 
-        this.mailPoll = mode.read ? new MailPoll(currentChat, currentAccount, currentFriend, keyWrapper, secureEmailPass, this).start() : null;
-        this.mailPush = mode.write? new MailPush(currentChat, currentAccount, currentFriend, keyWrapper, secureEmailPass, this) : null;
+//666        this.mailPoll = mode.read ? new MailPoll(currentChat, sender, currentSession, keyWrapper, secureEmailPass, this).start() : null;
+//666        this.mailPush = mode.write? new MailPush(currentChat, sender, currentSession, keyWrapper, secureEmailPass, this) : null;
 
-        return chat.accountName;
+//666        return chat.id;
+        return null;
     }
     
     public void send(String text) throws MessagingException, InterruptedException, IOException
@@ -227,48 +267,33 @@ public class Lettera extends Bee<Note> implements AutoCloseable
         // El método .toAnsi() la reconstruye, pero el método .plain() la devuelve como texto plano.
         return AttributedString.stripAnsi(input);
     }    
-    
-
-    void loadAllKeys() throws IOException, InterruptedException
-    {
-        secs = GPG.getSecKeys();
-        pubs = GPG.getPubKeys();
-    }
-    
-    public int countAccounts()
-    {
-        return db.getAccounts().length;
-    }
+        
     public int countFriends()
     {
-        return db.getFriends().length;
+//666        return db.getFriends().length;
+        return 666;
     }
 
     public int countSecKeys() throws IOException, InterruptedException
     {
-        return GPG.getSecKeys().length;
-    }
-    public int countPubKeys() throws IOException, InterruptedException
-    {
-        return GPG.getPubKeys().length;
-    }
-    
-    public int listAccounts()
-    {
-        Account[] items = db.getAccounts();
-        Table table = new Table(items.length, 3, false);
-        for(int r=0;r<items.length;r++)
-        {
-            table.setCell(r,0, items[r].name);
-            table.setCell(r,1, items[r].address);
-            table.setCell(r,2, items[r].keyid);
-        }
-        this.out.println(HR);
-        this.out.println("Accounts: "+items.length);
-        this.out.println(table.toString());
-        return items.length;
+        return secs.get().length;
     }
 
+    public int countPubKeys() throws IOException, InterruptedException
+    {
+        return pubs.get().length;
+    }
+    
+    public int listSender()
+    {
+        sender=db.getSender();
+        this.out.println(HR);
+        if(sender!=null)
+        {
+            this.out.printf("sender: %s - %s\n",sender.email,sender.gpgKeyId);
+        }
+        return sender!=null ? 1 : 0;
+    }
     public int listFriends()
     {
         Friend[] items = db.getFriends();
@@ -276,29 +301,38 @@ public class Lettera extends Bee<Note> implements AutoCloseable
         for(int r=0;r<items.length;r++)
         {
             table.setCell(r,0, items[r].name);
-            table.setCell(r,1, items[r].address);
-            table.setCell(r,2, items[r].keyid);
+            table.setCell(r,1, items[r].email);
+            table.setCell(r,2, items[r].fingerprint);
         }
         this.out.println(HR);
         this.out.println("Friends: "+items.length);
         this.out.println(table.toString());
         return items.length;
     }
-
-    public int listChats()
+        
+    public Set<String> getFriendNames()
     {
-        Chat[] items = db.getChats();
-        Table table = new Table(items.length, 3, false);
-        for(int r=0;r<items.length;r++)
+        Friend[] items = db.getFriends();
+        HashSet<String> set = new HashSet<>();
+        for (Friend item : items)
         {
-            table.setCell(r,0, items[r].id);
-            table.setCell(r,1, items[r].accountAddress);
-            table.setCell(r,2, items[r].friendAddress);
+            set.add(item.name);
         }
-        this.out.println(HR);
-        this.out.println("Chats: "+items.length);
-        this.out.println(table.toString());
-        return items.length;
+        return set;
+    }
+    
+    public Set<String> getPubKeysAddresses(PubKey[] pubs)
+    {
+        HashSet<String> set = new HashSet<>();
+        for (PubKey item : pubs)
+        {
+            for(UserId uid : item.getUids())
+            {
+                String[] nameEmail = Emails.parseEmailAddress(uid.uid);
+                set.add(nameEmail[1]);
+            }
+        }
+        return set;
     }
 
     @Override
@@ -317,9 +351,57 @@ public class Lettera extends Bee<Note> implements AutoCloseable
         db.close();
     }
 
-    @Override
-    protected void receive(Note m)
+    static final Pattern EMAIL_PATTERN1 = Pattern.compile(".*<(.+@.+)>.*");
+    static final Pattern EMAIL_PATTERN2 = Pattern.compile("([^<>]+@[^<>]+)");
+
+    static String getEmail(String uid)
     {
-        //do nothing
+        Matcher m1 = EMAIL_PATTERN1.matcher(uid);
+        if(m1.matches())
+        {
+            return m1.group(1);
+        }
+        Matcher m2 = EMAIL_PATTERN2.matcher(uid);
+        if(m2.matches())
+        {
+            return m2.group(1);
+        }
+        return null;
     }
+    
+    static Set<String> getEmails(MainKey[] keys)
+    {
+        Set<String> set = new HashSet<>();
+        for(MainKey item : keys)
+        {
+            for(UserId uid : item.getUids())
+            {
+                String email = getEmail(uid.uid);
+                if(email!=null)
+                {
+                    set.add(email);
+                }
+            }
+        }
+        return set;
+    }
+    
+    static Set<String> getFingerprints(String address, MainKey[] keys)
+    {
+        HashSet<String> set = new HashSet<>();
+        for(MainKey item : keys)
+        {
+            String fp = item.getMain().getFingerprint();
+            for(UserId uid : item.getUids())
+            {
+                String email = getEmail(uid.uid);
+                if(address.equalsIgnoreCase(email))
+                {
+                    set.add(fp);
+                }
+            }
+        }
+        return set;
+    }
+    
 }

@@ -1,25 +1,11 @@
 /*
- *  PassphraseManager.java
- *
- *  Copyright (c) 2025-2026 francitoshi@gmail.com
- *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- *  Report bugs or new features to: francitoshi@gmail.com
+ * Copyright (C) 2025-2026 francitoshi@gmail.com
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * See LICENSE file in the project root for full license text.
  */
 package io.francitoshi.lettera;
 
+import io.nut.base.crypto.gpg.PASS;
 import io.nut.base.io.console.AbstractConsole;
 import io.nut.base.io.console.VirtualConsole;
 import io.nut.base.security.StrongPassword;
@@ -33,10 +19,22 @@ public class PassphraseManager
 {
     static final int MIN_PASS_SIZE = 16;
     
+    public static String getUsername(boolean allowMock)
+    {
+        VirtualConsole console = AbstractConsole.getInstance(allowMock);
+        return console.readLine("username:").trim();
+    }
     public static char[] getPassphrase(boolean allowMock)
     {
         VirtualConsole console = AbstractConsole.getInstance(allowMock);
         return console.readPassword("passphrase:");
+    }
+    
+    public static char[] getPassPath(boolean allowMock)
+    {
+        VirtualConsole console = AbstractConsole.getInstance(allowMock);
+        String path = console.readLine("pass-path:");
+        return PASS.getKey(path).toCharArray();
     }
     
     public static char[] createPassphrase(boolean mockConsole)
@@ -46,13 +44,20 @@ public class PassphraseManager
         System.out.println("Hello, i'm lettera!!!\n");
         System.out.println("You need a safe passphrase to keep your data safe. Let's create a good one.");
         System.out.println("16+ characters, just 4 or 5 random words would be enough.");
+        System.out.println("left black to use a pass-path");
         System.out.println();
         while(true)
         {
+            boolean passpath = false;
             char[] passphrase=console.readPassword("passphrase:");
+            if(passphrase.length==0)
+            {
+                passpath = true;
+            }
             if(passphrase.length<MIN_PASS_SIZE)
             {
                 System.err.println("Too short: "+passphrase.length+" < "+MIN_PASS_SIZE);
+                continue;
             }
             int score = strongPassword.analyze(passphrase);
             StrongPassword.Level level = StrongPassword.getLevel(score);
@@ -60,6 +65,10 @@ public class PassphraseManager
             {
                 System.err.println(level);
                 continue;
+            }
+            if(passpath)
+            {
+                return passphrase;
             }
             char[] passphrase2=console.readPassword("retype passphrase:");
             if(Arrays.compare(passphrase, passphrase2)==0)

@@ -1,25 +1,13 @@
 /*
- *  LetteraDb.java
- *
- *  Copyright (c) 2025 francitoshi@gmail.com
- *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- *  Report bugs or new features to: francitoshi@gmail.com
+ * Copyright (C) 2025-2026 francitoshi@gmail.com
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * See LICENSE file in the project root for full license text.
  */
 package io.francitoshi.lettera;
 
+import io.francitoshi.lettera.data.PlainNote;
+import io.francitoshi.lettera.data.Friend;
+import io.francitoshi.lettera.data.Sender;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -34,16 +22,16 @@ public class LetteraDb implements Closeable
 {
     private final Object lock = new Object();
     private final MVStore store;
-    private final Map<String, Account> accounts;
+    private final Map<String, Sender> sender;
+    private final Map<String, Long> counters;
     private final Map<String, Friend> friends;
-    private final Map<String, Chat> chats;
 
     public LetteraDb(File file, char[] passphrase)
     {
         this.store = new MVStore.Builder().fileName(file.getAbsolutePath()).compress().recoveryMode().encryptionKey(passphrase).open();
-        this.accounts = this.store.openMap("accounts");
+        this.sender = this.store.openMap("sender");
+        this.counters = this.store.openMap("counters");
         this.friends = this.store.openMap("friends");
-        this.chats = this.store.openMap("chats");
     }
 
     @Override
@@ -55,42 +43,29 @@ public class LetteraDb implements Closeable
         }
     }
 
-    public Account[] getAccounts()
+    public void putSender(Sender value)
     {
         synchronized(lock)
         {
-            return this.accounts.values().toArray(new Account[0]);
+            sender.put("", value);
+        }
+    }
+    public Sender getSender()
+    {
+        synchronized(lock)
+        {
+            return sender.get("");
         }
     }
     
-    public Friend[] getFriends()
+    public long incrementAndGet(String key)
     {
         synchronized(lock)
         {
-            return this.friends.values().toArray(new Friend[0]);
-        }
-    }
-
-    public Chat[] getChats()
-    {
-        synchronized(lock)
-        {
-            return this.chats.values().toArray(new Chat[0]);
-        }
-    }
-
-    public void putAccount(Account value)
-    {
-        synchronized(lock)
-        {
-            accounts.put(value.name, value);
-        }
-    }
-    public Account getAccount(String name)
-    {
-        synchronized(lock)
-        {
-            return accounts.get(name);
+            Long value = counters.get(key);
+            value = value!=null ? value + 1L : 1L;
+            counters.put(key, value);
+            return value;
         }
     }
     
@@ -98,45 +73,46 @@ public class LetteraDb implements Closeable
     {
         synchronized(lock)
         {
-            friends.put(value.name, value);
+            friends.put(value.email, value);
         }
     }
-    public Friend getFriend(String name)
+
+    public Friend getFriend(String id)
     {
         synchronized(lock)
         {
-            return friends.get(name);
+            return friends.get(id);
+        }
+    }
+    public int getFriendsCount()
+    {
+        synchronized(lock)
+        {
+            return friends.size();
         }
     }
     
-    public void putChat(Chat value)
+    public Friend[] getFriends()
     {
         synchronized(lock)
         {
-            chats.put(value.id, value);
-        }
-    }
-    public Chat getChat(String id)
-    {
-        synchronized(lock)
-        {
-            return chats.get(id);
+            return friends.values().toArray(new Friend[0]);
         }
     }
     
+    public Map<Long,PlainNote> openChat(String id)
+    {
+        synchronized(lock)
+        {
+            return store.openMap("chat:"+id);
+        }
+    }
+
     public final void commit()
     {
         synchronized(lock)
         {
             store.commit();
-        }
-    }
-    
-    public Map<Long, Note> getNotes(String id)
-    {
-        synchronized(lock)
-        {
-            return this.store.openMap("notes-"+id);
         }
     }
     

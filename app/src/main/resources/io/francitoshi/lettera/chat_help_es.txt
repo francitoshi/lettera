@@ -1,13 +1,8 @@
-/help		: mostrar esta ayuda
-/setup-account  : crear/editar/borrar cuenta
-/setup-friend   : crear/editar/borrar amigo
-/setup-chat     : crear/editar/borrar chat
-/setup-wizard	: ejecutar el asistente de configuración
-/list-accounts  : listar cuentas
-/list-friends   : listar amigos
-/list-chats     : listar chats
-/chat session	: iniciar/countinuar chat con tu amigo
-/unread		: mostrar chats con mensajes sin leer
-/exit		: salir de la app
+/help           : mostrar esta ayuda
+/sender         : editar configuración del remitente
+/chat           : crear/continuar una sesión de chat
+/sessions       : listar sesiones de chat
+/forget         : eliminar una sesión de chat
+/exit           : salir de la aplicación
 
-Teclea un comando.
+Escribe un comando.

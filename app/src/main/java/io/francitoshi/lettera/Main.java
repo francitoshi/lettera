@@ -1,22 +1,7 @@
 /*
- *  Main.java
- *
- *  Copyright (c) 2025-2026 francitoshi@gmail.com
- *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- *  Report bugs or new features to: francitoshi@gmail.com
+ * Copyright (C) 2025-2026 francitoshi@gmail.com
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * See LICENSE file in the project root for full license text.
  */
 package io.francitoshi.lettera;
 
@@ -24,6 +9,7 @@ import io.francitoshi.lettera.Lettera.Mode;
 import io.nut.base.crypto.gpg.PASS;
 import io.nut.base.encoding.Base64DecoderException;
 import io.nut.base.io.ThrottledInputStream;
+import io.nut.base.logging.Log;
 import io.nut.base.net.HostPort;
 import io.nut.base.net.Socks5;
 import io.nut.base.net.Tor;
@@ -34,10 +20,12 @@ import io.nut.base.options.MissingOptionParameterException;
 import io.nut.base.options.OptionParser;
 import io.nut.base.options.StringOption;
 import io.nut.base.platform.Snap;
-import io.nut.base.resources.I18n;
+import io.nut.base.i18n.I18n;
 import io.nut.base.security.SecureChars;
-import io.nut.base.util.Java;
+import io.nut.base.lang.Java;
 import io.nut.base.util.Utils;
+import io.nut.base.concurrent.actor.ActorHub;
+import static io.nut.base.concurrent.actor.ActorPool.CORES;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -48,6 +36,8 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.FileHandler;
 import org.jline.terminal.*;
 
 public class Main
@@ -61,7 +51,9 @@ public class Main
     static final String WELCOME_TXT;
 
     static final String LETTERA_TXT;
-    static final String LETTERA_DB = "lettera.db";
+    
+    static final int    LOG_SIZE = 128*1024;
+    static final int    LOG_COUNT = 9;
 
     static final String TOR_HOST = "127.0.0.1";
     static final int    TOR_PORT = 9050;
@@ -82,25 +74,28 @@ public class Main
                 .replace("$VERSION$", VER)
                 .replace("$COPYRIGHT$", COPYRIGHT);
     }
+            
+    private static volatile Log log;
         
-    public static void main(String... args)
+    public static void main(String... args) throws Exception
     {
+//        NewProjectWizard.main(args);
+//        MenuExample.main(args);
         OptionParser options = new OptionParser();
         
         CommandOption sendCmd = options.add(new CommandOption('s',"send"));
-        CommandOption setupAccountCmd = options.add(new CommandOption("setup-account"));
-        CommandOption listAccountsCmd = options.add(new CommandOption("list-accounts"));
-        CommandOption listFriendsCmd = options.add(new CommandOption("list-friends"));
-        CommandOption listChatsCmd = options.add(new CommandOption("list-chats"));
+        CommandOption senderCmd = options.add(new CommandOption("sender"));
+        CommandOption friendsCmd = options.add(new CommandOption("friends"));
         
         StringOption dirOp = options.add(new StringOption('d', "dir"));
+        StringOption usernameOp = options.add(new StringOption('u', "username"));
         StringOption passphraseOp = options.add(new StringOption('p', "passphrase"));
-        StringOption passPassOp = options.add(new StringOption('P', "pass-pass"));
+        BooleanOption passPathOp = options.add(new BooleanOption('P', "pass-path"));
         StringOption inputOp = options.add(new StringOption('I', "input"));
         StringOption outputOp = options.add(new StringOption('O', "output"));
         BooleanOption noWizardOp = options.add(new BooleanOption('W', "no-wizard"));
         BooleanOption license = options.add(new BooleanOption('L', "license"));
-        BooleanOption debugOp = options.add(new BooleanOption('D', "debug"));
+        BooleanOption verboseOp = options.add(new BooleanOption('v', "verbose"));
         StringOption proxyOp = options.add(new StringOption('X', "proxy"));
         StringOption torOp = options.add(new StringOption('T', "tor"));
         BooleanOption version = options.add(new BooleanOption("version"));
@@ -126,26 +121,15 @@ public class Main
             {
                 System.out.println(LICENSE_TXT);
                 return;
-            }
-            boolean cmdUsed = CommandOption.isUsed(sendCmd, listAccountsCmd, listFriendsCmd, listChatsCmd);
+            }            
+            
+            boolean cmdUsed = CommandOption.isUsed(sendCmd, senderCmd, friendsCmd);
 
             if(!cmdUsed)
             {
                 System.out.println(Main.WELCOME_TXT);
             }
-
-            SecureChars passphrase = null;
-            if (passphraseOp.isUsed())
-            {
-                passphrase = new SecureChars(passphraseOp.getValue().toCharArray());
-                System.out.println("passphrase: ****************");
-            }
-            if (passPassOp.isUsed())
-            {
-                passphrase = new SecureChars(PASS.getKey(passPassOp.getValue()).toCharArray());
-                System.out.println("pass-pass: ****************");
-            }
-
+            
             final File letteraDir;
             if (dirOp.isUsed())
             {
@@ -164,16 +148,32 @@ public class Main
             else
             {
                 letteraDir = new File(Java.USER_HOME, ".lettera");
-            }
-            
-            final File configFile = new File(letteraDir, "config.properties");
-            final File keystoreFile = new File(letteraDir, "keystore.p12");
-            final File letteraDb = new File(letteraDir, LETTERA_DB);
+            }            
 
-            letteraDir.mkdirs();
-        
+            setupLoggers(verboseOp.getCount(), letteraDir);
+           
             InputStream input = null;
+            
+            String username = null;
+            if (usernameOp.isUsed())
+            {
+                username = usernameOp.getValue();
+                log.info("username: %s", username);
+            }
 
+            SecureChars passphrase = null;
+            if (passphraseOp.isUsed())
+            {
+                if(passPathOp.isUsed())
+                {
+                    passphrase = new SecureChars(PASS.getKey(passphraseOp.getValue()).toCharArray());
+                }
+                else
+                {
+                    passphrase = new SecureChars(passphraseOp.getValue().toCharArray());
+                }
+            }
+        
             if (inputOp.isUsed())
             {
                 File file = new File(inputOp.getValue());
@@ -194,7 +194,7 @@ public class Main
 
             boolean wizard = !noWizardOp.isUsed();
             boolean mock = input!=null || System.console()==null;
-            
+            boolean passpath = passPathOp.isUsed();
             if(proxyOp.isUsed() && torOp.isUsed())
             {
                 System.err.println("can't use --proxy and --tor at the same time");
@@ -213,10 +213,12 @@ public class Main
                 Tor tor = Tor.managed(hostPort.port, SocksPolicy.LOCALHOST_ONLY);
                 tor.installGlobally();
             }
-            
+                     
+            final ActorHub hive = new ActorHub(ActorHub.CORES, ActorHub.CORES, 30_000, true);
+    
             if(cmdUsed)
             {
-                try(Lettera lettera = new Lettera(System.out, configFile, keystoreFile, letteraDb, passphrase, mock, debugOp.isUsed()).open())
+                try(Lettera lettera = new Lettera(hive, System.out, letteraDir, username, passphrase, passpath, mock, verboseOp.isUsed()).open())
                 {
                     if(sendCmd.isUsed())
                     {
@@ -226,17 +228,9 @@ public class Main
                             lettera.send(args[i]);
                         }
                     }
-                    else if(listAccountsCmd.isUsed())
-                    {
-                        lettera.listAccounts();
-                    }
-                    else if(listFriendsCmd.isUsed())
+                    else if(friendsCmd.isUsed())
                     {
                         lettera.listFriends();
-                    }
-                    else if(listChatsCmd.isUsed())
-                    {
-                        lettera.listChats();
                     }
 //                lettera.setWizard(wizard);
 //                lettera.send();
@@ -246,7 +240,7 @@ public class Main
             {
                 try (Terminal terminal = getTerminal(mock, input, output))
                 {
-                    try(TerminalChat chat = new TerminalChat(terminal, configFile, keystoreFile, letteraDb, passphrase, mock, debugOp.isUsed()).open())
+                    try(TerminalChat chat = new TerminalChat(hive, terminal, letteraDir, username, passphrase, passpath, mock, verboseOp.isUsed()).open())
                     {
                         chat.setWizard(wizard);
                         if(lite.isUsed())
@@ -269,6 +263,21 @@ public class Main
         {
             System.getLogger(Main.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
+    }
+
+    static void setupLoggers(int verboseCount, File letteraDir) throws IOException
+    {
+        verboseCount = Math.min(verboseCount, Log.WARN);
+        int consoleLevel = Log.WARN-verboseCount;
+        int fileLevel    = Math.max(consoleLevel-1, 0);
+        
+        File logDir = new File(letteraDir,"log");
+        logDir.mkdirs();
+        String pattern = logDir.getPath()+"/lettera.log.%g";
+        ConsoleHandler ch = Log.getConsoleHandler(consoleLevel, Log.FormatType.DT_LEV_MSG);
+        FileHandler fh = Log.getFileHandler(fileLevel, Log.FormatType.DTZ_LEV_NAME_MSG, pattern, LOG_SIZE, LOG_COUNT, false);
+        Log.setJulBuilder(false, consoleLevel, ch, fh);
+        log = Log.of(Main.class);
     }
 
     public static HostPort getHostPort(StringOption option, String defaultValue) throws NumberFormatException

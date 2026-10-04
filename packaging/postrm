@@ -2,6 +2,5 @@
 set -e
 
 rm -f /usr/bin/lettera
-rm -f /usr/bin/lettera-lite
 
 exit 0

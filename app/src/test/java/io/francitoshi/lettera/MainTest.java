@@ -23,15 +23,15 @@ package io.francitoshi.lettera;
 import com.icegreen.greenmail.configuration.GreenMailConfiguration;
 import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.ServerSetupTest;
+import static io.francitoshi.lettera.Lettera.GPG;
 import io.nut.base.crypto.Kripto;
 import io.nut.base.crypto.Rand;
 import io.nut.base.crypto.gpg.GPG;
-import static io.nut.base.crypto.gpg.GPG.NISTP521;
-import io.nut.base.crypto.gpg.SecKey;
-import io.nut.base.util.concurrent.hive.Hive;
-import org.junit.jupiter.api.AfterEach;
+import io.nut.base.io.IO;
+import io.nut.base.concurrent.actor.ActorHub;
+import java.io.File;
+import java.io.IOException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
@@ -46,71 +46,83 @@ public class MainTest
     static final String PASSPHRASE = "eureka";
     
     static final String ALICE = "alice";
-    static final String BOB = "bob";
-    
-    static final String ALICE_PASSWORD = "alice-email-password";
-    static final String BOB_PASSWORD = "bob-email-password";
-
-    static final String ALICE_PASSPHRASE = "alice-gpg-passphrase";
-    static final String BOB_PASSPHRASE = "bob-gpg-passphrase";
-
     static final String ALICE_LOCALHOST = "alice@localhost";
+    static final String ALICE_LETTERA_PASSPHRASE = "alice-lettera-passphrase";
+    static final String ALICE_EMAIL_PASS = "alice-email-pass";
+    static final String ALICE_GPG_PASSPHRASE = "alice-gpg-passphrase";
+    
+    static final String BOB = "bob";
     static final String BOB_LOCALHOST = "bob@localhost";
+    static final String BOB_LETTERA_PASS = "bob-lettera-passphrase";
+    static final String BOB_EMAIL_PASS = "bob-email-pass";
+    static final String BOB_GPG_PASSPHRASE = "bob-gpg-passphrase";
+    
+    public static final String TMP_TEST_ALICE = "./tmp/test-alice";
     
     @RegisterExtension
     static GreenMailExtension greenMail = new GreenMailExtension(ServerSetupTest.SMTP_POP3_IMAP)
             .withConfiguration(GreenMailConfiguration.aConfig()
-            .withUser(ALICE_LOCALHOST, ALICE, ALICE_PASSWORD)
-            .withUser(BOB_LOCALHOST, BOB, BOB_PASSWORD));
+            .withUser(ALICE_LOCALHOST, ALICE, ALICE_EMAIL_PASS)
+            .withUser(BOB_LOCALHOST, BOB, BOB_EMAIL_PASS));
     
     public MainTest()
     {
     }
     
-    final GPG gpg = new GPG().setDebug(true);
+    final GPG gpg = new GPG().setDebug(false);
 
+    public void createAliceBobGpg() throws InterruptedException, IOException
+    {
+        if(gpg.getSecKeys(ALICE_LOCALHOST).length==0)
+        {
+            gpg.genKey(GPG.CURVE25519, GPG.SCA, GPG.CURVE25519, GPG.E, ALICE, "", ALICE_LOCALHOST, ALICE_GPG_PASSPHRASE, "4y");
+        }
+        if(gpg.getSecKeys(BOB_LOCALHOST).length==0)
+        {
+            gpg.genKey(GPG.RSA4096, GPG.SCA, GPG.RSA4096, GPG.E, BOB, "", BOB_LOCALHOST, BOB_GPG_PASSPHRASE, "4y");
+        }
+    }
+    
     @BeforeEach
     public void setUp() throws Exception
     {
-        if(gpg.getSecKeys(ALICE).length==0)
-        {
-            gpg.genKey(NISTP521, GPG.SCA, NISTP521, GPG.E, ALICE, "", ALICE_LOCALHOST, ALICE_PASSPHRASE, "4y");
-        }
-        if(gpg.getSecKeys(BOB).length==0)
-        {
-            gpg.genKey(NISTP521, GPG.SCA, NISTP521, GPG.E, BOB, "", BOB_LOCALHOST, BOB_PASSPHRASE, "4y");
-        }
+        IO.delete(new File(TMP_TEST_ALICE), true);
     }
 
-    @AfterEach
+    
+    //@AfterEach
     public void tearDown() throws Exception
     {
-        SecKey[] alice = gpg.getSecKeys(ALICE_LOCALHOST);
-        for(SecKey key : alice)
-        {
-            gpg.deleteSecAndPubKeys(key.getMain().getFingerprint());
-        }
-        SecKey[] bob = gpg.getSecKeys(BOB_LOCALHOST);
-        for(SecKey key : bob)
-        {
-            gpg.deleteSecAndPubKeys(key.getMain().getFingerprint());
-        }
+//        SecKey[] alice = gpg.getSecKeys(ALICE_LOCALHOST);
+//        for(SecKey key : alice)
+//        {
+//            gpg.deleteSecAndPubKeys(key.getMain().getFingerprint());
+//        }
+//        SecKey[] bob = gpg.getSecKeys(BOB_LOCALHOST);
+//        for(SecKey key : bob)
+//        {
+//            gpg.deleteSecAndPubKeys(key.getMain().getFingerprint());
+//        }
+//        IO.delete(new File(TMP_TEST_ALICE), true);
     }
 
+
     @Test
-    @Disabled
+    //@Disabled
     public void testMain1() throws Exception
     {
-        Main.main("--passphrase", PASSPHRASE, "--input", "test/input-test-alice1.txt", "--no-wizard", "--debug", "-d","./tmp/test-alice1");
-        Main.main("--passphrase", PASSPHRASE, "--input", "test/input-test-bob1.txt", "--no-wizard", "--debug", "-d","./tmp/test-bob1");
+        createAliceBobGpg();
+        Main.main("--passphrase", PASSPHRASE, "-u", ALICE, "-p", ALICE_LETTERA_PASSPHRASE, "--input", "test/01_alice_input.txt", "-vv", "-d", TMP_TEST_ALICE);
+//666        Main.main("--passphrase", PASSPHRASE, "--input", "test/input-test-bob1.txt", "--no-wizard", "--debug", "-d","./tmp/test-bob1");
     }
+
     
     @Test
-    @Disabled
+    
     public void testMain2() throws Exception
-    {
-        Hive hive = new Hive(2);
-        hive.execute( () -> Main.main("--passphrase", PASSPHRASE, "--input", "test/input-test-alice2.txt", "--no-wizard", "--debug", "-d","./tmp/test-alice2"));
-        Main.main("--passphrase", PASSPHRASE, "--input", "test/input-test-bob2.txt", "--no-wizard", "--debug", "-d","./tmp/test-bob2");
+    {        
+        ActorHub hive = new ActorHub(2);
+//666        hive.execute( () -> Main.main("--passphrase", PASSPHRASE, "--input", "test/input-test-alice2.txt", "--no-wizard", "--debug", "-d","./tmp/test-alice2"));
+//666        Main.main("--passphrase", PASSPHRASE, "--input", "test/input-test-bob2.txt", "--no-wizard", "--debug", "-d","./tmp/test-bob2");
     }
 }

@@ -32,12 +32,12 @@ public class EmailProvidersTest
     @Test
     public void testGetProvider() throws Exception
     {
-        Map<String, EmailSettings> providers = EmailProviders.load();
+        Map<String, EmailPreset> providers = EmailProviders.load();
 
-        for( Map.Entry<String, EmailSettings> entry : providers.entrySet())
+        for( Map.Entry<String, EmailPreset> entry : providers.entrySet())
         {
             String name = entry.getKey();
-            EmailSettings value = entry.getValue();
+            EmailPreset value = entry.getValue();
             
             System.out.println("name: "+name);
             System.out.println("domains: "+value.getDomains());

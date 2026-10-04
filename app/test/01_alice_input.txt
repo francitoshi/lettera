@@ -1,0 +1,20 @@
+alice@localhost
+localhost
+587
+localhost
+993
+y
+y
+alice
+alice-email-pass
+
+
+alice-gpg-passphrase
+/help
+/about
+/chat bob
+bob@localhost
+
+shared_secret
+UNTIL HERE
+/exit

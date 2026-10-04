@@ -5,24 +5,25 @@ plugins
 }
 
 group = 'com.github.francitoshi'
-version = '1.0.9'
 
 repositories
 {
     mavenCentral()
-    maven { url 'https://jitpack.io' }
+    maven { url = 'https://jitpack.io' }
 }
 
-def nutVersion = '0.1.71'
-def bouncycastleVersion = '1.83'
-def jlineVersion = '3.29.0'
+def nutVersion = '0.2.4'
+def bouncycastleVersion = '1.84'
+def jlineVersion = '4.3.1'
 def briarproject = '0.4.8.22'
 
 configurations.all 
 {
     resolutionStrategy 
     {
-        force "com.github.francitoshi:nut-base:${nutVersion}"
+        force "com.github.francitoshi.nut-base:nut-base-commons:${nutVersion}"
+        force "com.github.francitoshi.nut-base:nut-base-crypto:${nutVersion}"
+        force "com.github.francitoshi.nut-base:nut-base-util:${nutVersion}"
         force "com.github.francitoshi:nut-core:${nutVersion}"
         force "com.github.francitoshi:nut-headless:${nutVersion}"
         force "org.bouncycastle:bcprov-jdk18on:${bouncycastleVersion}"
@@ -33,6 +34,9 @@ configurations.all
 
 dependencies
 {
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("io.nayuki:qrcodegen:1.8.0")
+
     implementation "com.github.francitoshi:nut-base:${nutVersion}"
     implementation "com.github.francitoshi:nut-core:${nutVersion}"
     implementation "com.github.francitoshi:nut-headless:${nutVersion}"
@@ -41,10 +45,24 @@ dependencies
     implementation "org.bouncycastle:bcpkix-jdk18on:${bouncycastleVersion}"
 
     implementation "org.jline:jline:${jlineVersion}"
-    implementation "org.jline:jline-terminal:${jlineVersion}"
-    implementation "org.jline:jline-reader:${jlineVersion}"
+//    implementation "org.jline:jline-terminal:${jlineVersion}"
+//    implementation "org.jline:jline-reader:${jlineVersion}"
+//    implementation "org.jline:jline-prompt:${jlineVersion}:jdk11"
 
-    implementation 'com.sun.mail:jakarta.mail:2.0.2'
+    implementation 'org.jline:jline-terminal:4.3.1'
+    implementation 'org.jline:jline-reader:4.3.1'
+    implementation 'org.jline:jline-style:4.3.1'
+    implementation 'org.jline:jline-builtins:4.3.1'
+    implementation 'org.jline:jline-native:4.3.1'
+
+    implementation('org.jline:jline-prompt:4.3.1') 
+    {
+        exclude group: 'org.jline', module: 'jline-terminal-ffm'
+    }
+    implementation 'org.jline:jline-terminal-jni:4.3.1'
+
+    implementation 'org.eclipse.angus:angus-mail:2.0.5'
+
     implementation 'com.h2database:h2:2.4.240'
     implementation 'de.mkammerer:argon2-jvm:2.12'
 
@@ -61,9 +79,6 @@ dependencies
 
     testImplementation 'com.icegreen:greenmail-junit5:2.1.8'
     testImplementation 'org.slf4j:slf4j-jdk14:2.0.17'
-
-    // This dependency is used by the application.
-    implementation libs.guava
 }
 
 java
@@ -80,6 +95,11 @@ application
     applicationName = 'lettera'
 }
 
+import java.text.SimpleDateFormat
+import java.util.Date
+
+def buildDate = LocalDate.now()
+
 jar
 {
     archiveFileName = "lettera-${version}.jar"
@@ -89,6 +109,7 @@ jar
         attributes 'Implementation-Title': project.name
         attributes 'Implementation-Version': project.version
         attributes 'Implementation-Vendor': 'francitoshi@gmail.com'
+        attributes 'Build-Date': buildDate    
     }
 }
 
