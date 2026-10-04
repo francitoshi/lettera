@@ -31,6 +31,7 @@ import io.nut.base.security.SecureChars;
 import io.nut.base.util.Parsers;
 import io.nut.base.lang.Strings;
 import io.nut.base.util.Utils;
+import io.nut.base.concurrent.actor.Actor;
 import io.nut.base.concurrent.actor.ActorHub;
 import io.nut.base.util.Args;
 import io.nut.base.util.As;
@@ -69,7 +70,7 @@ import org.jline.terminal.Terminal;
  *
  * @author franci
  */
-public class TerminalChat extends Lettera
+public class TerminalChat extends Lettera implements java.util.function.Consumer<PlainNote>
 {
     //https://patorjk.com/software/taag/#p=display&f=miniwi&t=lettera
 
@@ -131,7 +132,13 @@ public class TerminalChat extends Lettera
     
     void run() throws IOException, InterruptedException, Exception
     {
-        //.add(storeBee, printBee);
+        try
+        {
+            hub.sub("PlainNote", this);
+        }
+        catch (Exception e)
+        {
+        }
         reader = buildLineReader(getCommandsCompleter());
 
         try
@@ -229,6 +236,12 @@ public class TerminalChat extends Lettera
         }    
         finally
         {
+            try
+            {
+            }
+            catch (Exception e)
+            {
+            }
             db.close();
         }
     }
@@ -701,10 +714,17 @@ public class TerminalChat extends Lettera
         }
     }
 
-    //666 @Override
-    protected void receive(PlainNote note)
+    @Override
+    public void accept(PlainNote note)
     {
-        reader.printAbove(note.text);
+        if (reader != null)
+        {
+            reader.printAbove(note.text);
+        }
+        else if (out != null)
+        {
+            out.println(note.text);
+        }
     }
     
     private static String normalize(String s)

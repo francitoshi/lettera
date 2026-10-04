@@ -12,7 +12,7 @@ import io.francitoshi.lettera.data.Friend;
 import io.francitoshi.lettera.data.Sender;
 import io.nut.base.crypto.gpg.GPG;
 import io.nut.base.security.SecureChars;
-import io.nut.base.concurrent.actor.Actor;
+import io.nut.base.concurrent.actor.ActorHub;
 import io.nut.core.net.mail.SMTP;
 import jakarta.mail.MessagingException;
 import java.io.IOException;
@@ -30,9 +30,10 @@ public class MailPush implements Consumer<PlainNote>
 
     private final SecureChars secureEmailPass;
     private final SMTP smtp;
-    private final Actor<PlainNote> hub;
+    private final ActorHub hub;
+    private final java.util.function.Consumer<PlainNote> publisher;
 
-    public MailPush(Sender sender, Friend friend, KeyWrapper keyWrapper, SecureChars secureEmailPass, Actor<PlainNote> hub)
+    public MailPush(Sender sender, Friend friend, KeyWrapper keyWrapper, SecureChars secureEmailPass, ActorHub hub)
     {
         this.sender = sender;
         this.friend = friend;
@@ -40,6 +41,7 @@ public class MailPush implements Consumer<PlainNote>
         this.secureEmailPass = secureEmailPass;
         this.smtp = new SMTP(sender.smtpHost, sender.smtpPort, sender.auth, sender.starttls, sender.username, secureEmailPass, sender.email);
         this.hub = hub;
+        this.publisher = hub.pub("PlainNote");
     }
 
     public boolean sendNote(String text) throws MessagingException, InterruptedException, IOException
@@ -89,7 +91,7 @@ public class MailPush implements Consumer<PlainNote>
 //        if(rc)
         {
             //666 note.setSent(JavaTime.epochSecond());
-//666                hub.send(note);
+//666                publisher.accept(note);
         }
     }
 }

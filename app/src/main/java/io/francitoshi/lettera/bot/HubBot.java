@@ -105,13 +105,8 @@ public class HubBot
     }
 
     
-    public final Actor<PlainNote> plainNoteActor = new Actor<>()
+    public final java.util.function.Consumer<PlainNote> plainNoteActor = (m) ->
     {
-        @Override
-        protected void receive(PlainNote m)
-        {
-        }
-
     };
 
     private void showNote(PlainNote m)

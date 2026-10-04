@@ -67,16 +67,12 @@ public class MailBotTest
     final ActorHub hub = new ActorHub();
     
     
-    final Actor<SealedNote> inbox = new Actor<>(hub,1,1)
+    final java.util.function.Consumer<SealedNote> inbox = (m) ->
     {
-        @Override
-        protected void receive(SealedNote m)
-        {
-            System.out.println(LocalDateTime.now().format(JavaTime.YYYY_MM_DDTHH_MM_SS));
-            System.out.println(m.innerEmail+"->"+m.outerEmail);
-            System.out.println(m.text);
-            System.out.println();
-        }
+        System.out.println(LocalDateTime.now().format(JavaTime.YYYY_MM_DDTHH_MM_SS));
+        System.out.println(m.innerEmail+"->"+m.outerEmail);
+        System.out.println(m.text);
+        System.out.println();
     };
 
     @Test

@@ -139,6 +139,8 @@ public class Lettera implements AutoCloseable
     private volatile MailPush mailPush;
     private volatile MailPoll mailPoll;
     volatile HubBot hubBot;
+    private volatile io.francitoshi.lettera.actor.StoreActor storeActor;
+    private volatile io.francitoshi.lettera.actor.CryptoActor cryptoActor;
 
     
     public Lettera(ActorHub hub, PrintStream out, File letteraDir, String username, SecureChars passphrase, boolean passpath, boolean mock, boolean debug)
@@ -220,6 +222,15 @@ public class Lettera implements AutoCloseable
         this.db = new LetteraDb(this.letteraDb, dbPass);
         
         //666 this.hubBot = new HubBot(hive, HR, db, dbPass);
+        try
+        {
+            this.storeActor = new io.francitoshi.lettera.actor.StoreActor(hub, db);
+            this.cryptoActor = new io.francitoshi.lettera.actor.CryptoActor(hub, keyWrapper);
+        }
+        catch (Exception e)
+        {
+            // keep existing behavior if actor registration fails
+        }
         
         return this;
     }
@@ -347,6 +358,16 @@ public class Lettera implements AutoCloseable
         {
             mailPush.close();
             mailPush = null;
+        }
+        if (storeActor != null)
+        {
+            storeActor.close();
+            storeActor = null;
+        }
+        if (cryptoActor != null)
+        {
+            cryptoActor.close();
+            cryptoActor = null;
         }
         db.close();
     }

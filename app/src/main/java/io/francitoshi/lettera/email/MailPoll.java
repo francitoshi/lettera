@@ -12,7 +12,7 @@ import io.francitoshi.lettera.data.Sender;
 import io.nut.base.crypto.gpg.GPG;
 import io.nut.base.security.SecureChars;
 import io.nut.base.util.Utils;
-import io.nut.base.concurrent.actor.Actor;
+import io.nut.base.concurrent.actor.ActorHub;
 import io.nut.core.net.mail.IMAP;
 import io.nut.core.net.mail.MailReader;
 import jakarta.mail.Message;
@@ -34,17 +34,19 @@ public class MailPoll implements Runnable
 //666    private final Map<Long, Note> currentNotes;
     private final SecureChars secureEmailPass;
     
-    private final Actor<PlainNote> hub;
+    private final ActorHub hub;
+    private final java.util.function.Consumer<PlainNote> publisher;
     private final Object lock = new Object();
     private volatile int waitMillis = 0;
 
-    public MailPoll(Sender currentAccount, Friend currentFriend, KeyWrapper keyWrapper, SecureChars secureEmailPass, Actor<PlainNote> hub)
+    public MailPoll(Sender currentAccount, Friend currentFriend, KeyWrapper keyWrapper, SecureChars secureEmailPass, ActorHub hub)
     {
         this.sender = currentAccount;
         this.friend = currentFriend;
         this.keyWrapper = keyWrapper;
         this.secureEmailPass = secureEmailPass;
         this.hub = hub;
+        this.publisher = hub.pub("PlainNote");
     }    
     
     @Override
