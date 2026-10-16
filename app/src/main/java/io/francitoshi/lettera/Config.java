@@ -80,6 +80,7 @@ public class Config
         properties.setProperty(ARGON2_MEMORY_KB, Integer.toString(memoryKB));
         properties.setProperty(ARGON2_PARALLELISM,Integer.toString(parallelism));
         properties.store(new FileOutputStream(configProperties),"created with default values by lettera");
+        Lettera.hardenFile(configProperties);
         
         return new Config(salt, iterations, memoryKB, parallelism);
     }

@@ -57,6 +57,7 @@ public class PassphraseManager
             if(passphrase.length<MIN_PASS_SIZE)
             {
                 System.err.println("Too short: "+passphrase.length+" < "+MIN_PASS_SIZE);
+                Arrays.fill(passphrase,'\0');
                 continue;
             }
             int score = strongPassword.analyze(passphrase);
@@ -64,6 +65,7 @@ public class PassphraseManager
             if(level.ordinal()<StrongPassword.Level.Good.ordinal())
             {
                 System.err.println(level);
+                Arrays.fill(passphrase,'\0');
                 continue;
             }
             if(passpath)
@@ -76,6 +78,8 @@ public class PassphraseManager
                 Arrays.fill(passphrase2,'\0');
                 return passphrase;
             }
+            Arrays.fill(passphrase,'\0');
+            Arrays.fill(passphrase2,'\0');
         }
     }
 //    public static char[] changePassphrase(char[] passphrase)

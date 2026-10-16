@@ -163,6 +163,10 @@ public class Main
             SecureChars passphrase = null;
             if (passphraseOp.isUsed())
             {
+                if(!passPathOp.isUsed())
+                {
+                    System.err.println("WARNING: --passphrase is intended for development and tests only; its value may be visible to other local processes (ps, /proc/<pid>/cmdline) and shell history.");
+                }
                 if(passPathOp.isUsed())
                 {
                     passphrase = new SecureChars(PASS.getKey(passphraseOp.getValue()).toCharArray());
@@ -272,6 +276,7 @@ public class Main
         
         File logDir = new File(letteraDir,"log");
         logDir.mkdirs();
+        Lettera.hardenDir(logDir);
         String pattern = logDir.getPath()+"/lettera.log.%g";
         ConsoleHandler ch = Log.getConsoleHandler(consoleLevel, Log.FormatType.DT_LEV_MSG);
         FileHandler fh = Log.getFileHandler(fileLevel, Log.FormatType.DTZ_LEV_NAME_MSG, pattern, LOG_SIZE, LOG_COUNT, false);

@@ -8,7 +8,6 @@ package io.francitoshi.lettera.bot;
 import io.francitoshi.lettera.data.SealedNote;
 import io.francitoshi.lettera.email.ServerSettings;
 import io.nut.base.commons.concurrent.actor.ActorHub;
-import io.nut.base.commons.io.IO;
 import io.nut.base.commons.security.SecureChars;
 import io.nut.base.commons.time.JavaTime;
 import io.nut.core.net.mail.IMAP;
@@ -16,6 +15,7 @@ import io.nut.core.net.mail.SMTP;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
@@ -26,6 +26,8 @@ import java.util.logging.Logger;
 
 public class MailBot
 {
+    private static final int MAX_BODY_BYTES = 4*1024;
+
     private final AtomicInteger counter = new AtomicInteger();
     private final AtomicBoolean active = new AtomicBoolean();
 
@@ -69,7 +71,11 @@ public class MailBot
                 long epochSecond = JavaTime.epochSecond(msg.getSentDate());
                 String from = Arrays.toString(msg.getFrom());
                 String to = Arrays.toString(msg.getAllRecipients());
-                String body = IO.readInputStreamAsString(msg.getInputStream(), StandardCharsets.UTF_8.name());
+                String body;
+                try(InputStream in = msg.getInputStream())
+                {
+                    body = new String(in.readNBytes(MAX_BODY_BYTES), StandardCharsets.UTF_8);
+                }
                 SealedNote note = null;//new SealedNote(to, from, );
 //666                hub.send(note);
             }

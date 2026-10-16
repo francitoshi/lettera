@@ -38,6 +38,9 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
@@ -91,9 +94,13 @@ public class Lettera implements AutoCloseable
     final File letteraDir;
     private volatile String username;
     private volatile SecureChars passphrase;
+    private volatile byte[] seed;
+    private volatile char[] dbPass;
     private volatile File configFile;
     private volatile File keystoreFile;
     private volatile File letteraDb;
+    private volatile SecureChars secureEmailPass;
+    private volatile SecureChars secureGpgPass;
     final boolean mock;
     final boolean debug;
     final boolean console;
@@ -160,6 +167,7 @@ public class Lettera implements AutoCloseable
     public Lettera open() throws IOException, Base64DecoderException, InterruptedException, KeyStoreException, NoSuchAlgorithmException, CertificateException, Exception
     {
         letteraDir.mkdirs();
+        hardenDir(letteraDir);
         if(username==null)
         {
             username = PassphraseManager.getUsername(mock);
@@ -176,6 +184,7 @@ public class Lettera implements AutoCloseable
             config = Config.createDefault(configFile);
             firstTime = true;
         }
+        hardenFile(configFile);
 
         if(passphrase==null)
         {
@@ -188,7 +197,7 @@ public class Lettera implements AutoCloseable
             
         long t0 = System.nanoTime();
         final Config finalConfig = config;
-        byte[] seed = passphrase.apply((pass)-> ARGON2.rawHash(finalConfig.iterations, finalConfig.memoryKB, finalConfig.parallelism, pass, finalConfig.getSalt()));        
+        this.seed = passphrase.apply((pass)-> ARGON2.rawHash(finalConfig.iterations, finalConfig.memoryKB, finalConfig.parallelism, pass, finalConfig.getSalt()));
 
         long t1 = System.nanoTime();
         
@@ -207,7 +216,6 @@ public class Lettera implements AutoCloseable
             firstTime = true;
         }
 
-        char[] dbPass;        
         if(firstTime || (dbPass=ksm.getPassphrase(DB))==null)
         {
             dbPass = Ascii85.encode(RAND.nextBytes(new byte[32]));
@@ -219,8 +227,10 @@ public class Lettera implements AutoCloseable
         {
             ksm.store(keystoreFile);
         }
+        hardenFile(keystoreFile);
         
         this.db = new LetteraDb(this.letteraDb, dbPass);
+        hardenFile(letteraDb);
         
         //666 this.hubBot = new HubBot(hive, HR, db, dbPass);
         try
@@ -251,8 +261,9 @@ public class Lettera implements AutoCloseable
 //666        currentChat = chat;
 //666        currentNotes = db.getNotes(session);
         
-        SecureChars secureEmailPass = new SecureChars(keyWrapper.unwrapKey("email", "pass", sender.emailPass));
-        SecureChars secureGpgPass = new SecureChars(keyWrapper.unwrapKey("gpg", "pass", sender.gpgPassphrase));
+        destroyMailSecrets();
+        this.secureEmailPass = new SecureChars(keyWrapper.unwrapKey("email", "pass", sender.emailPass));
+        this.secureGpgPass = new SecureChars(keyWrapper.unwrapKey("gpg", "pass", sender.gpgPassphrase));
         
 //666        mailReader = new IMAP(currentAccount.imapHost, currentAccount.imapPort, currentAccount.auth, currentAccount.starttls, false, currentAccount.username, secureEmailPass);
 //666        smtp = new SMTP(currentAccount.smtpHost, currentAccount.smtpPort, currentAccount.auth, currentAccount.starttls, currentAccount.username, secureEmailPass, currentAccount.address);
@@ -370,7 +381,76 @@ public class Lettera implements AutoCloseable
             cryptoActor.close();
             cryptoActor = null;
         }
+        if (hubBot != null)
+        {
+            hubBot.close();
+            hubBot = null;
+        }
+        destroyMailSecrets();
+        if(passphrase != null)
+        {
+            passphrase.destroy();
+            passphrase = null;
+        }
+        if(seed != null)
+        {
+            java.util.Arrays.fill(seed, (byte)0);
+            seed = null;
+        }
         db.close();
+        if(dbPass != null)
+        {
+            java.util.Arrays.fill(dbPass, '\0');
+            dbPass = null;
+        }
+    }
+
+    private void destroyMailSecrets()
+    {
+        if(secureEmailPass != null)
+        {
+            secureEmailPass.destroy();
+            secureEmailPass = null;
+        }
+        if(secureGpgPass != null)
+        {
+            secureGpgPass.destroy();
+            secureGpgPass = null;
+        }
+    }
+
+    static void hardenDir(File dir)
+    {
+        harden(dir, "rwx------", true);
+    }
+
+    static void hardenFile(File file)
+    {
+        harden(file, "rw-------", false);
+    }
+
+    private static void harden(File path, String posix, boolean executable)
+    {
+        if(path == null || !path.exists())
+        {
+            return;
+        }
+        try
+        {
+            Set<PosixFilePermission> perms = PosixFilePermissions.fromString(posix);
+            Files.setPosixFilePermissions(path.toPath(), perms);
+        }
+        catch(UnsupportedOperationException | IOException ex)
+        {
+            path.setReadable(false, false);
+            path.setWritable(false, false);
+            path.setReadable(true, true);
+            path.setWritable(true, true);
+            if(executable)
+            {
+                path.setExecutable(true, true);
+            }
+        }
     }
 
     static final Pattern EMAIL_PATTERN1 = Pattern.compile(".*<(.+@.+)>.*");

@@ -15,8 +15,10 @@ import io.nut.base.crypto.gpg.GPG;
 import io.nut.base.util.Utils;
 import io.nut.core.net.mail.IMAP;
 import io.nut.core.net.mail.MailReader;
+import jakarta.mail.Address;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
+import jakarta.mail.internet.InternetAddress;
 import java.awt.Toolkit;
 import java.io.IOException;
 import java.util.Arrays;
@@ -54,7 +56,8 @@ public class MailPoll implements Runnable
     {
         active=true;
         Date after=null;
-        final MailReader mailReader = new IMAP(sender.imapHost, sender.imapPort, sender.auth, sender.starttls, false, sender.username, secureEmailPass);
+        boolean imapSsl = sender.imapPort == IMAP.SAFE_PORT_993;
+        final MailReader mailReader = new IMAP(sender.imapHost, sender.imapPort, sender.auth, imapSsl, !imapSsl, false, sender.username, secureEmailPass);
         while(active)
         {
             waitMillis += LOOP_MILLIS;
@@ -96,20 +99,35 @@ public class MailPoll implements Runnable
 
     private boolean isCurrentChatSession(Message item) throws MessagingException
     {
-//        for(Address from : item.getFrom())
-//        {
-//            if(from.toString().contains(chat.senderAddress))
-//            {
-//                for(Address to : item.getAllRecipients())
-//                {
-//                    if(to.toString().contains(chat.friendAddress))
-//                    {
-//                        return true;
-//                    }
-//                }
-//                return false;
-//            }
-//        }
+        Address[] from = item.getFrom();
+        if (from == null || !containsEmail(from, friend.email))
+        {
+            return false;
+        }
+        Address[] to = item.getAllRecipients();
+        return to != null && containsEmail(to, sender.email);
+    }
+
+    private static boolean containsEmail(Address[] addresses, String email)
+    {
+        if (email == null || email.isEmpty())
+        {
+            return false;
+        }
+        for (Address address : addresses)
+        {
+            if (address instanceof InternetAddress)
+            {
+                if (email.equalsIgnoreCase(((InternetAddress) address).getAddress()))
+                {
+                    return true;
+                }
+            }
+            else if (address != null && email.equalsIgnoreCase(address.toString()))
+            {
+                return true;
+            }
+        }
         return false;
     }
     public MailPoll start()

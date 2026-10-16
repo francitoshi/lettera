@@ -48,6 +48,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Locale;
@@ -842,6 +843,7 @@ public class TerminalChat extends Lettera implements java.util.function.Consumer
         {
             emailPass=keyWrapper.wrapKey("email", "pass", password);
         }
+        Arrays.fill(password,'\0');
 
         String[] keyIds = getSecKeyIds(email);
         gpgKeyId = readGpgFingerprint("key: ", gpgKeyId, keyIds);
@@ -871,6 +873,7 @@ public class TerminalChat extends Lettera implements java.util.function.Consumer
             {
                 gpgPassphrase = keyWrapper.wrapKey("gpg","pass", passphrase);
             }        
+            Arrays.fill(passphrase,'\0');
         }
         else
         {
@@ -880,6 +883,7 @@ public class TerminalChat extends Lettera implements java.util.function.Consumer
                 passphrase = passphraser.chars("gpg+passphrase");
             }
             gpgPassphrase = keyWrapper.wrapKey("gpg","pass", passphrase);
+            Arrays.fill(passphrase,'\0');
         }
         sender = new Sender(email, auth, starttls, smtpHost, smtpPort, imapHost, imapPort, pop3Host, pop3Port, username, emailPass, gpgKeyId, gpgPassphrase, "");
         

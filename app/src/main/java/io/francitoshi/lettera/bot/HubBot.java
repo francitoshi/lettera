@@ -90,12 +90,40 @@ public class HubBot
     
     public PlainNote sealedToPlain(SealedNote sealed) throws IOException, InterruptedException
     {
-        byte[] cipherdate = sealed.text.getBytes(StandardCharsets.UTF_8);
+        byte[] cipherdata = sealed.text.getBytes(StandardCharsets.UTF_8);
         DecryptStatus status = new DecryptStatus();
-        byte[] plaintext = gpg.decryptAndVerify(cipherdate, gpgPassphrase, status);
+        byte[] plaintext = gpg.decryptAndVerify(cipherdata, gpgPassphrase, status);
+        if(!isAuthentic(status, sealed.innerFingerprint))
+        {
+            return null;
+        }
         long created = JavaTime.epochSecond();
 //666        return new PlainNote(sealed.id, created, sealed.mine, sealed.innerAddress, sealed.innerKeyId, sealed.outerAddress, sealed.outerKeyId, new String(plaintext, StandardCharsets.UTF_8));
         return null;
+    }
+
+    static boolean isAuthentic(DecryptStatus status, String expectedFingerprint)
+    {
+        if(!status.isDecryptionOkay() || !status.isValidSignature())
+        {
+            return false;
+        }
+        String signer = status.getSigner();
+        if(signer == null || expectedFingerprint == null || expectedFingerprint.isEmpty())
+        {
+            return false;
+        }
+        String expected = expectedFingerprint.toUpperCase();
+        String actual = signer.toUpperCase();
+        return expected.equals(actual) || expected.endsWith(actual);
+    }
+
+    public void close()
+    {
+        if(gpgPassphrase != null)
+        {
+            java.util.Arrays.fill(gpgPassphrase, '\0');
+        }
     }
 
     public boolean storeNote(PlainNote plain)

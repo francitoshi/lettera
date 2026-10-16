@@ -66,14 +66,28 @@ public class CryptoActor implements AutoCloseable {
     private final Publisher<WrapResp> pubWrap;
     private final Publisher<UnwrapResp> pubUnwrap;
 
-    public CryptoActor(ActorHub hub, KeyWrapper keyWrapper) {
+    public CryptoActor(ActorHub hub, KeyWrapper keyWrapper)
+    {
         this.keyWrapper = keyWrapper;
         this.pubWrap = hub.pub("CryptoWrapResp");
         this.pubUnwrap = hub.pub("CryptoUnwrapResp");
-        this.subWrap = hub.sub("CryptoWrapReq", new Consumer<WrapReq>() {
+        this.subWrap = hub.sub("CryptoWrapReq", new Consumer<WrapReq>()
+        {
             @Override
-            public void accept(WrapReq m) {
-                String w = keyWrapper.wrapKey(m.purpose, m.name, m.password);
+            public void accept(WrapReq m)
+	    {
+                String w;
+                try
+                {
+                    w = keyWrapper.wrapKey(m.purpose, m.name, m.password);
+                } 
+                finally
+                {
+                    if (m.password != null)
+                    {
+                        java.util.Arrays.fill(m.password, '\0');
+                    }
+                }
                 pubWrap.accept(new WrapResp(w));
             }
         });
