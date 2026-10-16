@@ -12,7 +12,7 @@ repositories
     maven { url = 'https://jitpack.io' }
 }
 
-def nutVersion = '0.2.4'
+def nutVersion = '0.2.8'
 def bouncycastleVersion = '1.84'
 def jlineVersion = '4.3.1'
 def briarproject = '0.4.8.22'
@@ -22,12 +22,18 @@ configurations.all
     resolutionStrategy 
     {
         force "com.github.francitoshi.nut-base:nut-base-commons:${nutVersion}"
+        force "com.github.francitoshi.nut-base:nut-base-net:${nutVersion}"
         force "com.github.francitoshi.nut-base:nut-base-crypto:${nutVersion}"
+        force "com.github.francitoshi.nut-base:nut-base-text:${nutVersion}"
         force "com.github.francitoshi.nut-base:nut-base-util:${nutVersion}"
+
         force "com.github.francitoshi:nut-core:${nutVersion}"
+
         force "com.github.francitoshi:nut-headless:${nutVersion}"
+
         force "org.bouncycastle:bcprov-jdk18on:${bouncycastleVersion}"
         force "org.bouncycastle:bcpkix-jdk18on:${bouncycastleVersion}"
+
         //failOnVersionConflict()
     }
 }
@@ -37,7 +43,11 @@ dependencies
     implementation("com.google.zxing:core:3.5.3")
     implementation("io.nayuki:qrcodegen:1.8.0")
 
-    implementation "com.github.francitoshi:nut-base:${nutVersion}"
+    implementation "com.github.francitoshi.nut-base:nut-base-commons:${nutVersion}"
+    implementation "com.github.francitoshi.nut-base:nut-base-crypto:${nutVersion}"
+    implementation "com.github.francitoshi.nut-base:nut-base-net:${nutVersion}"
+    implementation "com.github.francitoshi.nut-base:nut-base-text:${nutVersion}"
+    implementation "com.github.francitoshi.nut-base:nut-base-util:${nutVersion}"
     implementation "com.github.francitoshi:nut-core:${nutVersion}"
     implementation "com.github.francitoshi:nut-headless:${nutVersion}"
 

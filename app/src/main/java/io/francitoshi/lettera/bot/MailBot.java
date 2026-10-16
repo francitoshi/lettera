@@ -7,10 +7,10 @@ package io.francitoshi.lettera.bot;
 
 import io.francitoshi.lettera.data.SealedNote;
 import io.francitoshi.lettera.email.ServerSettings;
-import io.nut.base.io.IO;
-import io.nut.base.security.SecureChars;
-import io.nut.base.time.JavaTime;
-import io.nut.base.concurrent.actor.ActorHub;
+import io.nut.base.commons.concurrent.actor.ActorHub;
+import io.nut.base.commons.io.IO;
+import io.nut.base.commons.security.SecureChars;
+import io.nut.base.commons.time.JavaTime;
 import io.nut.core.net.mail.IMAP;
 import io.nut.core.net.mail.SMTP;
 import jakarta.mail.Message;

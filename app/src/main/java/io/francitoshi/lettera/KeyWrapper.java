@@ -6,9 +6,7 @@
 package io.francitoshi.lettera;
 
 import io.nut.base.crypto.SecureWrapper;
-import io.nut.base.lang.Chars;
-import io.nut.base.lang.Endian;
-import io.nut.base.util.Byter;
+import io.nut.base.commons.lang.Chars;
 import java.util.Arrays;
 
 public class KeyWrapper

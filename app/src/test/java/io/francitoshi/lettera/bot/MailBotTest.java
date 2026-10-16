@@ -1,22 +1,7 @@
 /*
- *  MainTest.java
- *
- *  Copyright (c) 2026 francitoshi@gmail.com
- *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- *  Report bugs or new features to: francitoshi@gmail.com
+ * Copyright (C) 2026 francitoshi@gmail.com
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * See LICENSE file in the project root for full license text.
  */
 package io.francitoshi.lettera.bot;
 
@@ -27,15 +12,15 @@ import io.francitoshi.lettera.data.SealedNote;
 import io.francitoshi.lettera.email.EmailPreset;
 import io.francitoshi.lettera.email.EmailProviders;
 import io.francitoshi.lettera.email.ServerSettings;
+import io.nut.base.commons.concurrent.actor.ActorHub;
+import io.nut.base.commons.jca.Kr;
+import io.nut.base.commons.jca.Rand;
+import io.nut.base.commons.time.JavaTime;
 import io.nut.base.crypto.Kripto;
-import io.nut.base.crypto.Rand;
 import io.nut.base.crypto.SKIP;
 import io.nut.base.crypto.gpg.GPG;
 import static io.nut.base.crypto.gpg.GPG.RSA1024;
 import io.nut.base.crypto.gpg.PASS;
-import io.nut.base.time.JavaTime;
-import io.nut.base.concurrent.actor.Actor;
-import io.nut.base.concurrent.actor.ActorHub;
 import java.time.LocalDateTime;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -47,7 +32,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
  */
 public class MailBotTest
 {
-    static final Rand RAND = Kripto.getRand();
+    static final Rand RAND = Rand.getInstance();
     
     static final String ALICE = "alice";
     static final String BOB = "bob";

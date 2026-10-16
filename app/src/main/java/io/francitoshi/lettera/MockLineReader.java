@@ -5,8 +5,8 @@
  */
 package io.francitoshi.lettera;
 
-import io.nut.base.io.IO;
-import io.nut.base.lang.Strings;
+import io.nut.base.commons.io.IO;
+import io.nut.base.commons.lang.Strings;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;

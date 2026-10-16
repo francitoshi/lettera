@@ -1,9 +1,14 @@
+/*
+ * Copyright (C) 2026 francitoshi@gmail.com
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * See LICENSE file in the project root for full license text.
+ */
 package io.francitoshi.lettera.actor;
 
 import io.francitoshi.lettera.KeyWrapper;
-import io.nut.base.concurrent.actor.ActorHub;
-import io.nut.base.concurrent.actor.Publisher;
-import io.nut.base.concurrent.actor.Subscription;
+import io.nut.base.commons.concurrent.actor.ActorHub;
+import io.nut.base.commons.concurrent.actor.Publisher;
+import io.nut.base.commons.concurrent.actor.Subscription;
 
 import java.io.Serializable;
 import java.util.function.Consumer;

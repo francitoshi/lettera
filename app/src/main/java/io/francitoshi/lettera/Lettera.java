@@ -13,24 +13,25 @@ import de.mkammerer.argon2.Argon2Advanced;
 import de.mkammerer.argon2.Argon2Factory;
 import io.francitoshi.lettera.bot.HubBot;
 import io.francitoshi.lettera.data.PlainNote;
+import io.nut.base.commons.concurrent.Lazy;
+import io.nut.base.commons.concurrent.actor.ActorHub;
+import io.nut.base.commons.encoding.Ascii85;
+import io.nut.base.commons.encoding.Base64DecoderException;
+import io.nut.base.commons.jca.Kr;
+import io.nut.base.commons.jca.Rand;
+import io.nut.base.commons.security.SecureChars;
 import io.nut.base.crypto.KeyStoreManager;
-import io.nut.base.crypto.Kripto;
 import io.nut.base.crypto.Passphraser;
-import io.nut.base.crypto.Rand;
 import io.nut.base.crypto.SecureWrapper;
 import io.nut.base.crypto.gpg.GPG;
 import io.nut.base.crypto.gpg.MainKey;
 import io.nut.base.crypto.gpg.PubKey;
 import io.nut.base.crypto.gpg.SecKey;
 import io.nut.base.crypto.gpg.UserId;
-import io.nut.base.encoding.Ascii85;
-import io.nut.base.encoding.Base64DecoderException;
 import io.nut.base.logging.Log;
 import io.nut.base.net.Emails;
-import io.nut.base.security.SecureChars;
+import io.nut.base.crypto.Kripto;
 import io.nut.base.text.Table;
-import io.nut.base.concurrent.Lazy;
-import io.nut.base.concurrent.actor.ActorHub;
 import jakarta.mail.MessagingException;
 import java.io.File;
 import java.io.IOException;
@@ -62,7 +63,7 @@ public class Lettera implements AutoCloseable
     public static final int TRUST_LEVEL_VERIFIED_JPAKE = 3;
     
     static final Kripto KRIPTO = Kripto.getInstance(false);
-    static final Rand RAND = Kripto.getRand();
+    static final Rand RAND = Rand.getInstance();
     static final GPG GPG = new GPG().setArmor(true);
     
     static final String DB = "db";
@@ -195,7 +196,7 @@ public class Lettera implements AutoCloseable
         
         passphraser = KRIPTO.getPassphraserHkdf(KRIPTO.getHkdfWithSha512(), seed, config.getSalt());
         ksm = KRIPTO.getKeyStoreManagerPKCS12(passphraser);
-        keyWrapper = new KeyWrapper(new SecureWrapper(KRIPTO, seed, Kripto.Hkdf.HkdfWithSha512));
+        keyWrapper = new KeyWrapper(new SecureWrapper(KRIPTO, seed, Kr.Hkdf.HkdfWithSha512));
         
         if(keystoreFile.exists())
         {        

@@ -5,10 +5,9 @@
  */
 package io.francitoshi.lettera;
 
-import io.nut.base.crypto.Kripto;
-import io.nut.base.crypto.Rand;
-import io.nut.base.encoding.Base64;
-import io.nut.base.encoding.Base64DecoderException;
+import io.nut.base.commons.encoding.Base64;
+import io.nut.base.commons.encoding.Base64DecoderException;
+import io.nut.base.commons.jca.Rand;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -30,7 +29,7 @@ public class Config
     private static final int MEM_KBSIZE = 65536;
     private static final int PARALELISM = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors()));
     
-    private static final Rand RAND = Kripto.getRand();
+    private static final Rand RAND = Rand.getInstance();
     
     private final byte[] salt;
     public final int iterations;

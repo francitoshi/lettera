@@ -6,26 +6,25 @@
 package io.francitoshi.lettera;
 
 import io.francitoshi.lettera.Lettera.Mode;
+import io.nut.base.cli.options.BooleanOption;
+import io.nut.base.cli.options.CommandOption;
+import io.nut.base.cli.options.MissingOptionParameterException;
+import io.nut.base.cli.options.OptionParser;
+import io.nut.base.cli.options.StringOption;
+import io.nut.base.commons.concurrent.actor.ActorHub;
+import io.nut.base.commons.encoding.Base64DecoderException;
+import io.nut.base.commons.i18n.I18n;
+import io.nut.base.commons.lang.First;
+import io.nut.base.commons.lang.Java;
+import io.nut.base.commons.security.SecureChars;
 import io.nut.base.crypto.gpg.PASS;
-import io.nut.base.encoding.Base64DecoderException;
 import io.nut.base.io.ThrottledInputStream;
 import io.nut.base.logging.Log;
 import io.nut.base.net.HostPort;
 import io.nut.base.net.Socks5;
 import io.nut.base.net.Tor;
 import io.nut.base.net.Tor.SocksPolicy;
-import io.nut.base.options.BooleanOption;
-import io.nut.base.options.CommandOption;
-import io.nut.base.options.MissingOptionParameterException;
-import io.nut.base.options.OptionParser;
-import io.nut.base.options.StringOption;
 import io.nut.base.platform.Snap;
-import io.nut.base.i18n.I18n;
-import io.nut.base.security.SecureChars;
-import io.nut.base.lang.Java;
-import io.nut.base.util.Utils;
-import io.nut.base.concurrent.actor.ActorHub;
-import static io.nut.base.concurrent.actor.ActorPool.CORES;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -44,7 +43,7 @@ public class Main
 {
     static final String LETTERA = "lettera";
     static final String COPYRIGHT = "Copyright (C) 2025-2026 francitoshi@gmail.com";
-    static final String VER = Utils.firstNonNull(Main.class.getPackage().getImplementationVersion(), "[dev]");
+    static final String VER = First.firstNonNull(Main.class.getPackage().getImplementationVersion(), "[dev]");
     private static final String VERSION = LETTERA + " v" + VER;
     static final String LICENSE_TXT;
     static final String HELP_TXT;
@@ -214,7 +213,7 @@ public class Main
                 tor.installGlobally();
             }
                      
-            final ActorHub hive = new ActorHub(ActorHub.CORES, ActorHub.CORES, 30_000, true);
+            final ActorHub hive = ActorHub.hub(ActorHub.CORES, ActorHub.CORES, 30_000, true);
     
             if(cmdUsed)
             {

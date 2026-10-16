@@ -5,10 +5,10 @@
  */
 package io.francitoshi.lettera;
 
+import io.nut.base.commons.security.StrongPassword;
 import io.nut.base.crypto.gpg.PASS;
 import io.nut.base.io.console.AbstractConsole;
 import io.nut.base.io.console.VirtualConsole;
-import io.nut.base.security.StrongPassword;
 import java.util.Arrays;
 
 /**
