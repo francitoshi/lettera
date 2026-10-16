@@ -671,7 +671,7 @@ public class TerminalChat extends Lettera implements java.util.function.Consumer
             {
                 String bodyHtml = (String) message.getContent();
                 reader.printAbove("Cuerpo del mensaje (HTML):");
-                reader.printAbove(bodyHtml);
+                reader.printAbove(stripHtml(bodyHtml));
                 // Podrías usar una librería como Jsoup para parsear este HTML
             }
             else if (message.isMimeType("multipart/*"))
@@ -688,7 +688,7 @@ public class TerminalChat extends Lettera implements java.util.function.Consumer
                     // Si la disposición es ATTACHMENT, probablemente no es el cuerpo principal.
                     if (Part.ATTACHMENT.equalsIgnoreCase(bodyPart.getDisposition()))
                     {
-                        reader.printAbove("Parte " + i + " es un adjunto: " + bodyPart.getFileName());
+                        reader.printAbove("Parte " + i + " es un adjunto: " + stripAnsi(bodyPart.getFileName()));
                         continue; // Pasamos a la siguiente parte
                     }
 
@@ -696,13 +696,13 @@ public class TerminalChat extends Lettera implements java.util.function.Consumer
                     if (bodyPart.isMimeType("text/plain"))
                     {
                         reader.printAbove("Cuerpo encontrado (Texto Plano en multipart):");
-                        reader.printAbove(bodyPart.getContent().toString());
+                        reader.printAbove(stripAnsi(bodyPart.getContent().toString()));
 
                     }
                     else if (bodyPart.isMimeType("text/html"))
                     {
                         reader.printAbove("Cuerpo encontrado (HTML en multipart):");
-                        reader.printAbove(bodyPart.getContent().toString());
+                        reader.printAbove(stripHtml(bodyPart.getContent().toString()));
                     }
                 }
             }
@@ -717,13 +717,14 @@ public class TerminalChat extends Lettera implements java.util.function.Consumer
     @Override
     public void accept(PlainNote note)
     {
+        String text = stripAnsi(note.text);
         if (reader != null)
         {
-            reader.printAbove(note.text);
+            reader.printAbove(text);
         }
         else if (out != null)
         {
-            out.println(note.text);
+            out.println(text);
         }
     }
     

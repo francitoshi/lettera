@@ -31,6 +31,7 @@ import io.nut.base.crypto.gpg.UserId;
 import io.nut.base.logging.Log;
 import io.nut.base.net.Emails;
 import io.nut.base.crypto.Kripto;
+import io.nut.base.text.Sanitizer;
 import io.nut.base.text.Table;
 import jakarta.mail.MessagingException;
 import java.io.File;
@@ -51,7 +52,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.jline.utils.AttributedString;
 
 public class Lettera implements AutoCloseable
 {
@@ -280,16 +280,33 @@ public class Lettera implements AutoCloseable
         this.mailPush.sendNote(text);
     }
         
+    private static final Sanitizer TEXT_SANITIZER = new Sanitizer(true, false, Integer.MAX_VALUE);
+    private static final Sanitizer HTML_SANITIZER = new Sanitizer(true, true, Integer.MAX_VALUE);
+
+    /**
+     * Sanea texto no confiable (p. ej. procedente de la red) antes de imprimirlo
+     * en el terminal. Delega en {@link Sanitizer}: elimina secuencias de escape
+     * ANSI/CSI/OSC y normaliza CR/CRLF a '\n' para que nada pueda mover el cursor,
+     * sobrescribir lineas ni simular el prompt de lettera. Ademas solo conserva
+     * letras, numeros, puntuacion, separadores, monedas (Sc), '\n'/'\t' y los
+     * simbolos de texto habituales (p. ej. &lt;&gt;+=|~^` ° ± × ÷ © ® ≠ ≈ ≤ ≥ ∞
+     * ← ↑ → ↓ ↔ ✓ ⚠ ★ ♥); descarta controles, caracteres de formato (p. ej. override
+     * RTL U+202E), emoji, lookalikes anchos (＜＞＝｜), marcas, uso privado y no asignados.
+     */
     public static String stripAnsi(String input)
     {
-        if (input == null || input.isEmpty())
-        {
-            return input;
-        }
-        // AttributedString puede parsear una cadena con códigos ANSI.
-        // El método .toAnsi() la reconstruye, pero el método .plain() la devuelve como texto plano.
-        return AttributedString.stripAnsi(input);
-    }    
+        return input == null ? null : TEXT_SANITIZER.sanitize(input);
+    }
+
+    /**
+     * Como {@link #stripAnsi(String)} pero ademas elimina el marcado HTML no
+     * confiable (etiquetas y bloques &lt;script&gt;), para no imprimir HTML crudo
+     * en el terminal.
+     */
+    public static String stripHtml(String input)
+    {
+        return input == null ? null : HTML_SANITIZER.sanitize(input);
+    }
         
     public int countFriends()
     {
