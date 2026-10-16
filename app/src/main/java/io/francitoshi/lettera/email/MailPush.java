@@ -48,8 +48,15 @@ public class MailPush implements Consumer<PlainNote>
     {
         byte[] plainBytes = text.getBytes(UTF8);
         char[] gpgPass = keyWrapper.unwrapKey("gpg", "pass", sender.gpgPassphrase);
-        byte[] encryptedText = GPG.encryptAndSign(plainBytes, sender.email, gpgPass, friend.email);
-        Arrays.fill(gpgPass, '\0');
+        byte[] encryptedText;
+        try
+        {
+            encryptedText = GPG.encryptAndSign(plainBytes, sender.email, gpgPass, friend.email);
+        }
+        finally
+        {
+            Arrays.fill(gpgPass, '\0');
+        }
         if (!smtp.isConnected())
         {
             smtp.connect();

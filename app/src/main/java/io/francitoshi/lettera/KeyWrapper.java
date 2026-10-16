@@ -22,18 +22,28 @@ public class KeyWrapper
     {
         String purposeName = purpose+"+"+name;
         byte[] pass = Chars.bytesUTF8(password);
-        String wrapped = wrapper.wrap(pass, purposeName);
-        Arrays.fill(pass, (byte)0);
-        return wrapped;
+        try
+        {
+            return wrapper.wrap(pass, purposeName);
+        }
+        finally
+        {
+            Arrays.fill(pass, (byte)0);
+        }
     }
     
     public char[] unwrapKey(String purpose, String name, String wrapped)
     {
         String purposeName = purpose+"+"+name;
         byte[] pass = wrapper.unwrap(wrapped, purposeName);
-        char[] password = Chars.charsUTF8(pass);
-        Arrays.fill(pass, (byte)0);
-        return password;
+        try
+        {
+            return Chars.charsUTF8(pass);
+        }
+        finally
+        {
+            Arrays.fill(pass, (byte)0);
+        }
     }
     
 }

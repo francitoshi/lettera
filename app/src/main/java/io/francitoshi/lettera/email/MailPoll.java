@@ -75,10 +75,16 @@ public class MailPoll implements Runnable
                     if(isCurrentChatSession(item))
                     {
                         char[] gpgPass = keyWrapper.unwrapKey("gpg", "pass", sender.gpgPassphrase);
-                        //666 hub.send(item, gpgPass);
-                        //666 hub.send(note);
-                        Arrays.fill(gpgPass, '\0');
-                        Toolkit.getDefaultToolkit().beep();
+                        try
+                        {
+                            //666 hub.send(item, gpgPass);
+                            //666 hub.send(note);
+                            Toolkit.getDefaultToolkit().beep();
+                        }
+                        finally
+                        {
+                            Arrays.fill(gpgPass, '\0');
+                        }
                     }
                 }
                 synchronized (lock)

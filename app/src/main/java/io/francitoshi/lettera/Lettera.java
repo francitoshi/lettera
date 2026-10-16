@@ -262,8 +262,18 @@ public class Lettera implements AutoCloseable
 //666        currentNotes = db.getNotes(session);
         
         destroyMailSecrets();
-        this.secureEmailPass = new SecureChars(keyWrapper.unwrapKey("email", "pass", sender.emailPass));
-        this.secureGpgPass = new SecureChars(keyWrapper.unwrapKey("gpg", "pass", sender.gpgPassphrase));
+        char[] emailPass = keyWrapper.unwrapKey("email", "pass", sender.emailPass);
+        char[] gpgPass = keyWrapper.unwrapKey("gpg", "pass", sender.gpgPassphrase);
+        try
+        {
+            this.secureEmailPass = new SecureChars(emailPass);
+            this.secureGpgPass = new SecureChars(gpgPass);
+        }
+        finally
+        {
+            Arrays.fill(emailPass, '\0');
+            Arrays.fill(gpgPass, '\0');
+        }
         
 //666        mailReader = new IMAP(currentAccount.imapHost, currentAccount.imapPort, currentAccount.auth, currentAccount.starttls, false, currentAccount.username, secureEmailPass);
 //666        smtp = new SMTP(currentAccount.smtpHost, currentAccount.smtpPort, currentAccount.auth, currentAccount.starttls, currentAccount.username, secureEmailPass, currentAccount.address);

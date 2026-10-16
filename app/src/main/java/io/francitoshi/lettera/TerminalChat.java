@@ -836,15 +836,21 @@ public class TerminalChat extends Lettera implements java.util.function.Consumer
         }
 
         char[] password = passpath ? readLinePassPath("password-path: ") : readLinePassword("password: ");
-        if(password.length==0 && sender!=null)
+        try
         {
-            emailPass=sender.emailPass;
+            if(password.length==0 && sender!=null)
+            {
+                emailPass=sender.emailPass;
+            }
+            else
+            {
+                emailPass=keyWrapper.wrapKey("email", "pass", password);
+            }
         }
-        else
+        finally
         {
-            emailPass=keyWrapper.wrapKey("email", "pass", password);
+            Arrays.fill(password,'\0');
         }
-        Arrays.fill(password,'\0');
 
         String[] keyIds = getSecKeyIds(email);
         gpgKeyId = readGpgFingerprint("key: ", gpgKeyId, keyIds);
@@ -857,34 +863,46 @@ public class TerminalChat extends Lettera implements java.util.function.Consumer
         if(gpgKeyId.isEmpty())
         {
             char[] passphrase = passphraser.chars("gpg+passphrase");
-            int rc = GPG.genKey(CURVE25519, CA, CURVE25519, E, username, "lettera", email, new String(passphrase), "4y");
-            if(rc==0)
+            try
             {
-                SecKey[] keys = GPG.getSecKeys(email);
-                gpgKeyId = keys[0].getMain().getFingerprint();
-                rc = GPG.addKeyECC(gpgKeyId, true, false, false, 1, "4y", new String(passphrase));
+                int rc = GPG.genKey(CURVE25519, CA, CURVE25519, E, username, "lettera", email, passphrase, "4y");
+                if(rc==0)
+                {
+                    SecKey[] keys = GPG.getSecKeys(email);
+                    gpgKeyId = keys[0].getMain().getFingerprint();
+                    rc = GPG.addKeyECC(gpgKeyId, true, false, false, 1, "4y", passphrase);
+                }
+                if(rc!=0)
+                {
+                    System.out.printf("error: %d\n",rc);
+                    gpgKeyId = "";
+                    gpgPassphrase = "";
+                }
+                else
+                {
+                    gpgPassphrase = keyWrapper.wrapKey("gpg","pass", passphrase);
+                }
             }
-            if(rc!=0)
+            finally
             {
-                System.out.printf("error: %d\n",rc);
-                gpgKeyId = "";
-                gpgPassphrase = "";
+                Arrays.fill(passphrase,'\0');
             }
-            else
-            {
-                gpgPassphrase = keyWrapper.wrapKey("gpg","pass", passphrase);
-            }        
-            Arrays.fill(passphrase,'\0');
         }
         else
         {
             char[] passphrase = passpath ? readLinePassPath("passphrase-path: ") : readLinePassword("passphrase: ");
-            if(passphrase.length==0)
+            try
             {
-                passphrase = passphraser.chars("gpg+passphrase");
+                if(passphrase.length==0)
+                {
+                    passphrase = passphraser.chars("gpg+passphrase");
+                }
+                gpgPassphrase = keyWrapper.wrapKey("gpg","pass", passphrase);
             }
-            gpgPassphrase = keyWrapper.wrapKey("gpg","pass", passphrase);
-            Arrays.fill(passphrase,'\0');
+            finally
+            {
+                Arrays.fill(passphrase,'\0');
+            }
         }
         sender = new Sender(email, auth, starttls, smtpHost, smtpPort, imapHost, imapPort, pop3Host, pop3Port, username, emailPass, gpgKeyId, gpgPassphrase, "");
         
