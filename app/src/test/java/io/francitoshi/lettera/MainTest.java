@@ -60,11 +60,11 @@ public class MainTest
     {
         if(gpg.getSecKeys(ALICE_LOCALHOST).length==0)
         {
-            gpg.genKey(GPG.CURVE25519, GPG.SCA, GPG.CURVE25519, GPG.E, ALICE, "", ALICE_LOCALHOST, ALICE_GPG_PASSPHRASE, "4y");
+            gpg.genKey(GPG.CURVE25519, GPG.SCA, GPG.CURVE25519, GPG.E, ALICE, "", ALICE_LOCALHOST, ALICE_GPG_PASSPHRASE.toCharArray(), "4y");
         }
         if(gpg.getSecKeys(BOB_LOCALHOST).length==0)
         {
-            gpg.genKey(GPG.RSA4096, GPG.SCA, GPG.RSA4096, GPG.E, BOB, "", BOB_LOCALHOST, BOB_GPG_PASSPHRASE, "4y");
+            gpg.genKey(GPG.RSA4096, GPG.SCA, GPG.RSA4096, GPG.E, BOB, "", BOB_LOCALHOST, BOB_GPG_PASSPHRASE.toCharArray(), "4y");
         }
     }
     

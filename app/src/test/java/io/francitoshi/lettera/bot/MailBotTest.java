@@ -125,7 +125,7 @@ public class MailBotTest
 
         if(gpg.getSecKeys(EMAIL).length==0)
         {
-            gpg.genKey(RSA1024, GPG.ESCA, "dummy", "", EMAIL, PASSPHRASE, "4y");
+            gpg.genKey(RSA1024, GPG.ESCA, "dummy", "", EMAIL, PASSPHRASE.toCharArray(), "4y");
         }
         
 //        PipeActor<SealedNote,String> smtpActor = hive.pipe((x) -> x.text);
